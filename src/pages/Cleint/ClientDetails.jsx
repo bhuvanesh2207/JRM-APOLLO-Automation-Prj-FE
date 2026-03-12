@@ -1,10 +1,15 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { FaEdit, FaTrashAlt, FaList } from "react-icons/fa";
 import Navbar from "../../compomnents/Navbar";
 import Sidebar from "../../compomnents/Sidebar";
+import Footer from "../../compomnents/Footer";
+
 import AutoBreadcrumb from "../../compomnents/AutoBreadcrumb";
+import Popup from "../../compomnents/Popup";
 import api from "../../api/axios";
+// If your CSS is in a separate file, import it here:
+// import "./ClientDetails.css";
 
 const ClientDetails = () => {
   const navigate = useNavigate();
@@ -14,8 +19,42 @@ const ClientDetails = () => {
 
   // Pagination & Search state
   const [search, setSearch] = useState("");
-  const [entriesPerPage, setEntriesPerPage] = useState(10);
+  const [entriesPerPage, setEntriesPerPage] = useState(5);
   const [currentPage, setCurrentPage] = useState(1);
+
+  // Entries-per-page dropdown state
+  const [showEntriesDropdown, setShowEntriesDropdown] = useState(false);
+  const entriesDropdownRef = useRef(null);
+
+  // Popup state
+  const [popupConfig, setPopupConfig] = useState({
+    show: false,
+    type: "info",
+    title: "",
+    message: "",
+    confirmText: "OK",
+    cancelText: "Cancel",
+    showCancel: false,
+    onConfirm: null,
+  });
+
+  const openPopup = (config) => {
+    setPopupConfig({
+      show: true,
+      type: "info",
+      title: "",
+      message: "",
+      confirmText: "OK",
+      cancelText: "Cancel",
+      showCancel: false,
+      onConfirm: null,
+      ...config,
+    });
+  };
+
+  const closePopup = () => {
+    setPopupConfig((prev) => ({ ...prev, show: false }));
+  };
 
   // --------- Fetch Clients ---------
   const fetchClients = async () => {
@@ -24,6 +63,7 @@ const ClientDetails = () => {
       const res = await api.get("/api/client/list/");
       if (res.data.success) {
         setClients(res.data.clients || []);
+        setError("");
       } else {
         setError("Failed to fetch clients.");
       }
@@ -38,38 +78,81 @@ const ClientDetails = () => {
     fetchClients();
   }, []);
 
+  // Close entries dropdown when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (
+        entriesDropdownRef.current &&
+        !entriesDropdownRef.current.contains(event.target)
+      ) {
+        setShowEntriesDropdown(false);
+      }
+    };
+
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
+
   // --------- Handlers ---------
   const handleEditClient = (clientId) => {
     navigate(`/client/update/${clientId}`);
   };
 
-  const handleDeleteClient = async (clientId) => {
-    if (!window.confirm(`Are you sure you want to delete this client?`)) return;
-
-    try {
-      const res = await api.delete(`/api/client/delete/${clientId}/`);
-      if (res.data.success) {
-        alert(res.data.message || "Client deleted successfully");
-        fetchClients(); // Refresh
-      } else {
-        alert(res.data.message || "Failed to delete client");
-      }
-    } catch (err) {
-      alert(err.response?.data?.error || "Server error");
-    }
+  const handleDeleteClient = (clientId) => {
+    openPopup({
+      type: "delete",
+      title: "Delete Client",
+      message: "Are you sure you want to delete this client?",
+      showCancel: true,
+      confirmText: "Delete",
+      cancelText: "Cancel",
+      onConfirm: async () => {
+        closePopup();
+        try {
+          const res = await api.delete(`/api/client/delete/${clientId}/`);
+          if (res.data.success) {
+            await fetchClients();
+            openPopup({
+              type: "success",
+              title: "Deleted",
+              message: res.data.message || "Client deleted successfully.",
+              confirmText: "OK",
+              showCancel: false,
+            });
+          } else {
+            openPopup({
+              type: "error",
+              title: "Error",
+              message: res.data.message || "Failed to delete client.",
+              confirmText: "OK",
+              showCancel: false,
+            });
+          }
+        } catch (err) {
+          openPopup({
+            type: "error",
+            title: "Error",
+            message: err.response?.data?.error || "Server error.",
+            confirmText: "OK",
+            showCancel: false,
+          });
+        }
+      },
+    });
   };
 
   // --------- Filtering & Pagination ---------
   const filteredClients = clients.filter((client) =>
-    client.name.toLowerCase().includes(search.toLowerCase())
+    client.name.toLowerCase().includes(search.toLowerCase()),
   );
 
   const totalEntries = filteredClients.length;
-  const totalPages = Math.ceil(totalEntries / entriesPerPage);
+  const totalPages =
+    totalEntries === 0 ? 1 : Math.ceil(totalEntries / entriesPerPage);
 
   const paginatedClients = filteredClients.slice(
     (currentPage - 1) * entriesPerPage,
-    currentPage * entriesPerPage
+    currentPage * entriesPerPage,
   );
 
   const startEntry =
@@ -114,43 +197,73 @@ const ClientDetails = () => {
             </div>
 
             {/* Top controls */}
-            <div
-              style={{
-                display: "flex",
-                justifyContent: "space-between",
-                alignItems: "center",
-                marginBottom: 12,
-              }}
-            >
-              <div>
-                <select
-                  value={entriesPerPage}
-                  onChange={(e) => {
-                    setEntriesPerPage(Number(e.target.value));
-                    setCurrentPage(1);
-                  }}
-                  style={{ marginRight: 8 }}
-                >
-                  {[10, 25, 50, 100].map((num) => (
-                    <option key={num} value={num}>
-                      {num}
-                    </option>
-                  ))}
-                </select>
-                entries per page
+            {!loading && !error && (
+              <div
+                style={{
+                  display: "flex",
+                  justifyContent: "space-between",
+                  alignItems: "center",
+                  marginBottom: 12,
+                }}
+              >
+                {/* Left: entries-per-page dropdown */}
+                <div className="table-controls-left">
+                  <div
+                    className="sort-filter-wrapper sort-filter-wrapper-left"
+                    ref={entriesDropdownRef}
+                  >
+                    <button
+                      type="button"
+                      className="btn btn-sort"
+                      onClick={() => setShowEntriesDropdown((prev) => !prev)}
+                    >
+                      <span>{entriesPerPage} / page</span>
+                      <span className="sort-filter-caret" />
+                    </button>
+
+                    {showEntriesDropdown && (
+                      <div className="sort-filter-dropdown">
+                        {[5, 10, 25, 50].map((num) => (
+                          <button
+                            key={num}
+                            type="button"
+                            className="sort-filter-option"
+                            onClick={() => {
+                              setEntriesPerPage(num);
+                              setCurrentPage(1);
+                              setShowEntriesDropdown(false);
+                            }}
+                          >
+                            <span
+                              className={
+                                "sort-filter-checkbox" +
+                                (entriesPerPage === num ? " checked" : "")
+                              }
+                            />
+                            <span>{num} entries per page</span>
+                          </button>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                {/* Right: search */}
+                <div className="table-controls-right">
+                  <div className="table-search">
+                    <input
+                      type="text"
+                      value={search}
+                      onChange={(e) => {
+                        setSearch(e.target.value);
+                        setCurrentPage(1);
+                      }}
+                      placeholder="Search clients"
+                    />
+                  </div>
+                </div>
               </div>
-              <div className="table-search">
-                <input
-                  type="text"
-                  value={search}
-                  onChange={(e) => {
-                    setSearch(e.target.value);
-                    setCurrentPage(1);
-                  }}
-                  placeholder="Search clients"
-                />
-              </div>
-            </div>
+            )}
 
             {/* Table */}
             {loading ? (
@@ -231,7 +344,7 @@ const ClientDetails = () => {
                         >
                           {page}
                         </button>
-                      )
+                      ),
                     )}
                     <button
                       className="pagination-btn"
@@ -249,6 +362,22 @@ const ClientDetails = () => {
           </div>
         </div>
       </main>
+
+      {/* Global popup component */}
+      <Popup
+        show={popupConfig.show}
+        type={popupConfig.type}
+        title={popupConfig.title}
+        message={popupConfig.message}
+        onClose={closePopup}
+        onConfirm={
+          popupConfig.onConfirm ? () => popupConfig.onConfirm() : closePopup
+        }
+        confirmText={popupConfig.confirmText}
+        cancelText={popupConfig.cancelText}
+        showCancel={popupConfig.showCancel}
+      />
+      <Footer />
     </div>
   );
 };

@@ -1,36 +1,46 @@
 import axios from "axios";
 
-const api = axios.create({
+const axiosInstance = axios.create({
   baseURL: "http://localhost:8000",
-  withCredentials: true,
-  headers: { "Content-Type": "application/json" },
+  withCredentials: true, // send HttpOnly cookies
 });
 
-// Attach CSRF token from localStorage to requests
-api.interceptors.request.use((config) => {
-  const csrfToken = localStorage.getItem("csrf");
-  if (csrfToken) config.headers["X-CSRFToken"] = csrfToken;
-  return config;
-});
+let isRefreshing = false;
+let refreshPromise = null;
 
-// Refresh access token on 401
-api.interceptors.response.use(
+axiosInstance.interceptors.response.use(
   (response) => response,
   async (error) => {
     const originalRequest = error.config;
 
-    if (error.response?.status === 401 && !originalRequest._retry) {
+    if (
+      error.response?.status === 401 &&
+      !originalRequest._retry
+    ) {
       originalRequest._retry = true;
+
+      // If refresh already in progress, wait for it
+      if (!isRefreshing) {
+        isRefreshing = true;
+        refreshPromise = axiosInstance
+          .post("/api/admin/refresh/")
+          .finally(() => {
+            isRefreshing = false;
+          });
+      }
+
       try {
-        await api.post("/api/admin/refresh/");
-        return api(originalRequest);
-      } catch (err) {
+        await refreshPromise;
+        return axiosInstance(originalRequest);
+      } catch (refreshError) {
+        // Refresh failed → logout
         window.location.href = "/";
-        return Promise.reject(err);
+        return Promise.reject(refreshError);
       }
     }
+
     return Promise.reject(error);
   }
 );
 
-export default api;
+export default axiosInstance;

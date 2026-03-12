@@ -3,7 +3,10 @@ import { useParams } from "react-router-dom";
 import { FaHistory } from "react-icons/fa";
 import Navbar from "../../compomnents/Navbar";
 import Sidebar from "../../compomnents/Sidebar";
+import Footer from "../../compomnents/Footer";
+
 import AutoBreadcrumb from "../../compomnents/AutoBreadcrumb";
+import Popup from "../../compomnents/Popup";
 import api from "../../api/axios";
 
 const DomainHistory = () => {
@@ -12,6 +15,36 @@ const DomainHistory = () => {
   const [history, setHistory] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+
+  // Popup state
+  const [popupConfig, setPopupConfig] = useState({
+    show: false,
+    type: "info",
+    title: "",
+    message: "",
+    confirmText: "OK",
+    cancelText: "Cancel",
+    showCancel: false,
+    onConfirm: null,
+  });
+
+  const openPopup = (config) => {
+    setPopupConfig({
+      show: true,
+      type: "info",
+      title: "",
+      message: "",
+      confirmText: "OK",
+      cancelText: "Cancel",
+      showCancel: false,
+      onConfirm: null,
+      ...config,
+    });
+  };
+
+  const closePopup = () => {
+    setPopupConfig((prev) => ({ ...prev, show: false }));
+  };
 
   // Filters
   const [searchDomain, setSearchDomain] = useState("");
@@ -33,10 +66,26 @@ const DomainHistory = () => {
       if (res.data.success) {
         setHistory(res.data.history || []);
       } else {
-        setError("Failed to fetch history.");
+        const msg = res.data.message || "Failed to fetch history.";
+        setError(msg);
+        openPopup({
+          type: "error",
+          title: "Error",
+          message: msg,
+          confirmText: "OK",
+          showCancel: false,
+        });
       }
     } catch (err) {
-      setError("Server error while fetching history.");
+      const msg = "Server error while fetching history.";
+      setError(msg);
+      openPopup({
+        type: "error",
+        title: "Error",
+        message: msg,
+        confirmText: "OK",
+        showCancel: false,
+      });
     } finally {
       setLoading(false);
     }
@@ -49,7 +98,9 @@ const DomainHistory = () => {
   // Filtered history
   const filteredHistory = history.filter((item) => {
     const domainMatch = searchDomain
-      ? item.domainName?.toLowerCase().includes(searchDomain.toLowerCase())
+      ? item.domain?.domain_name
+          ?.toLowerCase()
+          .includes(searchDomain.toLowerCase())
       : true;
     const dateMatch = searchDate
       ? item.updated_at?.slice(0, 10) === searchDate
@@ -59,10 +110,12 @@ const DomainHistory = () => {
 
   // Pagination
   const totalEntries = filteredHistory.length;
-  const totalPages = Math.ceil(totalEntries / entriesPerPage);
+  const totalPages =
+    totalEntries === 0 ? 1 : Math.ceil(totalEntries / entriesPerPage);
+
   const paginatedHistory = filteredHistory.slice(
     (currentPage - 1) * entriesPerPage,
-    currentPage * entriesPerPage
+    currentPage * entriesPerPage,
   );
   const startEntry =
     totalEntries === 0 ? 0 : (currentPage - 1) * entriesPerPage + 1;
@@ -127,7 +180,7 @@ const DomainHistory = () => {
                 entries per page
               </div>
 
-              {/* Filters moved to right side */}
+              {/* Filters */}
               <div style={{ display: "flex", gap: "1rem", flexWrap: "wrap" }}>
                 <div style={{ display: "flex", flexDirection: "column" }}>
                   <label
@@ -198,7 +251,7 @@ const DomainHistory = () => {
                                 year: "numeric",
                                 month: "short",
                                 day: "numeric",
-                              }
+                              },
                             )
                           : "N/A";
 
@@ -241,7 +294,7 @@ const DomainHistory = () => {
                         >
                           {page}
                         </button>
-                      )
+                      ),
                     )}
                     <button
                       className="pagination-btn"
@@ -259,6 +312,22 @@ const DomainHistory = () => {
           </div>
         </div>
       </main>
+
+      {/* Global popup component */}
+      <Popup
+        show={popupConfig.show}
+        type={popupConfig.type}
+        title={popupConfig.title}
+        message={popupConfig.message}
+        onClose={closePopup}
+        onConfirm={
+          popupConfig.onConfirm ? () => popupConfig.onConfirm() : closePopup
+        }
+        confirmText={popupConfig.confirmText}
+        cancelText={popupConfig.cancelText}
+        showCancel={popupConfig.showCancel}
+      />
+      <Footer />
     </div>
   );
 };

@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import api from "../api/axios";
 import { FaRegEye } from "react-icons/fa";
@@ -13,6 +13,24 @@ function Login() {
   const [error, setError] = useState("");
   const [errors, setErrors] = useState({});
   const navigate = useNavigate();
+
+  // ---------- AUTO REDIRECT IF ALREADY LOGGED IN ----------
+  useEffect(() => {
+    const checkAuth = async () => {
+      try {
+        const response = await api.get("/api/admin/check_auth/");
+        if (response.status === 200) {
+          // Admin is already logged in, redirect
+          navigate("/admin-dashboard");
+        }
+      } catch (err) {
+        // Not logged in or not admin, stay on login page
+        console.log("User not authenticated or not admin");
+      }
+    };
+
+    checkAuth();
+  }, [navigate]);
 
   // ---------- VALIDATION ----------
   const validate = () => {
@@ -49,15 +67,13 @@ function Login() {
       });
 
       if (response.status === 200) {
-        const { access, refresh, csrf: csrfToken } = response.data;
+        const { csrf: csrfToken } = response.data;
 
-        localStorage.setItem("access", access);
-        localStorage.setItem("refresh", refresh);
-        localStorage.setItem("csrf", csrfToken);
-
-        api.defaults.headers.common["Authorization"] = `Bearer ${access}`;
+        // Set CSRF token for future requests
         api.defaults.headers.post["X-CSRFToken"] = csrfToken;
 
+        // No need to store JWT in localStorage because it's HttpOnly cookie
+        // Just redirect to dashboard
         navigate("/admin-dashboard");
       }
     } catch (err) {
@@ -65,7 +81,7 @@ function Login() {
         setError(
           err.response.data.detail ||
             err.response.data.error ||
-            "Invalid credentials"
+            "Invalid credentials",
         );
       } else {
         setError("Server error. Try again later.");
@@ -93,7 +109,10 @@ function Login() {
 
         <div className="login-right">
           <div className="brand-logo">
-            <span className="brand-text">JRM / APOLLO</span>
+            <span className="brand-text">
+              <span className="jrm">JRM</span> /{" "}
+              <span className="apollo">APOLLO</span>
+            </span>
           </div>
 
           <div className="header-text">

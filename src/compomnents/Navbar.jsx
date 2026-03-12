@@ -26,58 +26,31 @@ function Navbar() {
       }
     };
 
-    window.addEventListener("resize", () => {
-      // Close dropdown if resizing from mobile to desktop
+    const handleResize = () => {
       if (!isMobile()) setIsProfileOpen(false);
-    });
+    };
 
     document.addEventListener("mousedown", handleClickOutside);
     document.addEventListener("keydown", handleKeyDown);
+    window.addEventListener("resize", handleResize);
 
     return () => {
       document.removeEventListener("mousedown", handleClickOutside);
       document.removeEventListener("keydown", handleKeyDown);
+      window.removeEventListener("resize", handleResize);
     };
   }, []);
 
-  const getCSRFToken = () => {
-    const name = "csrftoken=";
-    const cookies = document.cookie.split("; ");
-    for (let cookie of cookies) {
-      if (cookie.startsWith(name)) {
-        return cookie.substring(name.length);
-      }
-    }
-    return null;
-  };
-
+  // ✅ UPDATED logout handler
   const handleLogout = async () => {
     try {
-      const csrfToken = getCSRFToken();
+      await api.post("/api/admin/logout/");
 
-      if (!csrfToken) {
-        console.error("❌ CSRF token missing");
-        return;
-      }
-
-      const response = await api.post(
-        "/api/admin/logout/",
-        {},
-        {
-          headers: {
-            "X-CSRFToken": csrfToken,
-          },
-          withCredentials: true,
-        }
-      );
-
-      console.log("✅ Logout successful:", response.data);
-
-      // Redirect to login
-      navigate("/", { replace: true });
+      // 🔥 Important: hard redirect clears memory & state
+      window.location.replace("/");
     } catch (error) {
       console.error("❌ Logout failed", error);
-      console.log("Error response:", error.response?.data);
+      window.location.replace("/");
     }
   };
 
@@ -101,27 +74,19 @@ function Navbar() {
           <div className="topbar-divider" />
 
           <div className="topbar-profile-wrapper" ref={profileRef}>
-            {/* Avatar Image (clickable on mobile) */}
+            {/* Avatar Image */}
             <img
               src={Admin}
               alt="user"
               className="topbar-profile-avatar"
-              onClick={() => {
-                if (isMobile()) {
-                  setIsProfileOpen((prev) => !prev);
-                }
-              }}
+              onClick={() => setIsProfileOpen((prev) => !prev)}
             />
 
-            {/* Admin Button (desktop only) */}
+            {/* Admin Button */}
             <button
               type="button"
               className="topbar-profile"
-              onClick={() => {
-                if (!isMobile()) {
-                  setIsProfileOpen((prev) => !prev);
-                }
-              }}
+              onClick={() => setIsProfileOpen((prev) => !prev)}
             >
               <div className="topbar-profile-info">
                 <span className="topbar-profile-name">Admin</span>
@@ -135,7 +100,7 @@ function Navbar() {
                 (isProfileOpen ? " profile-dropdown--open" : "")
               }
             >
-              <div className="profile-dropdown-header">Welcome !</div>
+              <div className="profile-dropdown-header">Welcome!</div>
 
               <button
                 type="button"

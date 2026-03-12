@@ -2,15 +2,18 @@ import React, { useState, useEffect, useRef } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { FaUserPlus, FaEdit, FaRedo } from "react-icons/fa";
 import Navbar from "../../compomnents/Navbar";
+import Footer from "../../compomnents/Footer";
+
 import Sidebar from "../../compomnents/Sidebar";
 import AutoBreadcrumb from "../../compomnents/AutoBreadcrumb";
+import Popup from "../../compomnents/Popup"; // Make sure this path is correct
 
 import api from "../../api/axios";
 
 const ClientUpdateForm = () => {
   const formRef = useRef(null);
   const navigate = useNavigate();
-  const { id } = useParams(); // client ID from route
+  const { id } = useParams();
 
   const [formData, setFormData] = useState({
     name: "",
@@ -23,21 +26,56 @@ const ClientUpdateForm = () => {
   const [loading, setLoading] = useState(true);
   const [errors, setErrors] = useState({});
 
+  // Popup state
+  const [popupConfig, setPopupConfig] = useState({
+    show: false,
+    type: "info",
+    title: "",
+    message: "",
+    confirmText: "OK",
+    cancelText: "Cancel",
+    showCancel: false,
+    onConfirm: null,
+  });
+
+  const openPopup = (config) => {
+    setPopupConfig({
+      show: true,
+      type: "info",
+      title: "",
+      message: "",
+      confirmText: "OK",
+      cancelText: "Cancel",
+      showCancel: false,
+      onConfirm: null,
+      ...config,
+    });
+  };
+
+  const closePopup = () => {
+    setPopupConfig((prev) => ({ ...prev, show: false }));
+  };
+
   // -------- Fetch existing client data --------
   useEffect(() => {
     const fetchClient = async () => {
       try {
         const res = await api.get(`/api/client/get/${id}/`);
         setFormData({
-          name: res.data.name,
-          contact: res.data.contact,
-          email: res.data.email,
-          companyName: res.data.companyName,
-          address: res.data.address,
+          name: res.data.name || "",
+          contact: res.data.contact || "",
+          email: res.data.email || "",
+          companyName: res.data.companyName || "",
+          address: res.data.address || "",
         });
       } catch (err) {
-        alert(err.response?.data?.error || "Failed to fetch client details");
-        navigate("/client/all"); // Go back if error
+        openPopup({
+          type: "error",
+          title: "Error",
+          message:
+            err.response?.data?.error || "Failed to fetch client details.",
+          onConfirm: () => navigate("/client/all"),
+        });
       } finally {
         setLoading(false);
       }
@@ -92,12 +130,24 @@ const ClientUpdateForm = () => {
   };
 
   const handleReset = () => {
-    setFormData({
-      name: "",
-      contact: "",
-      email: "",
-      companyName: "",
-      address: "",
+    openPopup({
+      type: "warning",
+      title: "Reset Form",
+      message: "Are you sure you want to reset all fields?",
+      showCancel: true,
+      confirmText: "Reset",
+      cancelText: "Cancel",
+      onConfirm: () => {
+        setFormData({
+          name: "",
+          contact: "",
+          email: "",
+          companyName: "",
+          address: "",
+        });
+        setErrors({});
+        closePopup();
+      },
     });
   };
 
@@ -105,24 +155,41 @@ const ClientUpdateForm = () => {
     e.preventDefault();
 
     if (!validate()) {
+      // Optional: Show validation error popup
+      openPopup({
+        type: "error",
+        title: "Validation Error",
+        message: "Please fix the errors in the form before submitting.",
+      });
       return;
     }
 
     try {
       const payload = {
-        name: formData.name,
-        contact: formData.contact,
-        email: formData.email,
-        company_name: formData.companyName,
-        address: formData.address,
+        name: formData.name.trim(),
+        contact: formData.contact.trim(),
+        email: formData.email.trim(),
+        company_name: formData.companyName.trim(),
+        address: formData.address.trim(),
       };
 
       await api.put(`/api/client/update/${id}/`, payload);
 
-      alert("Client updated successfully");
-      navigate("/client/all"); // back to client table
+      openPopup({
+        type: "success",
+        title: "Success!",
+        message: "Client updated successfully.",
+        onConfirm: () => {
+          closePopup();
+          navigate("/client/all");
+        },
+      });
     } catch (err) {
-      alert(err.response?.data?.error || "Failed to update client");
+      openPopup({
+        type: "error",
+        title: "Update Failed",
+        message: err.response?.data?.error || "Failed to update client.",
+      });
     }
   };
 
@@ -139,7 +206,7 @@ const ClientUpdateForm = () => {
 
       <main className="app-main">
         <div className="max-w-[1200px] mx-auto px-5 mt-6">
-        <AutoBreadcrumb />
+          <AutoBreadcrumb />
           <div className="bg-white rounded-lg shadow-lg p-6">
             <section className="form-container" ref={formRef}>
               <h2>
@@ -147,7 +214,9 @@ const ClientUpdateForm = () => {
               </h2>
 
               {loading ? (
-                <div>Loading client details...</div>
+                <div className="text-center py-8">
+                  Loading client details...
+                </div>
               ) : (
                 <form onSubmit={handleSubmit}>
                   {/* Line 1: Name & Company Name */}
@@ -163,7 +232,6 @@ const ClientUpdateForm = () => {
                         placeholder="Client name"
                         value={formData.name}
                         onChange={handleChange}
-                        required
                       />
                       {errors.name && (
                         <p className="error-message">{errors.name}</p>
@@ -181,7 +249,6 @@ const ClientUpdateForm = () => {
                         placeholder="Company name"
                         value={formData.companyName}
                         onChange={handleChange}
-                        required
                       />
                       {errors.companyName && (
                         <p className="error-message">{errors.companyName}</p>
@@ -202,7 +269,6 @@ const ClientUpdateForm = () => {
                         placeholder="Phone number"
                         value={formData.contact}
                         onChange={handleChange}
-                        required
                       />
                       {errors.contact && (
                         <p className="error-message">{errors.contact}</p>
@@ -220,7 +286,6 @@ const ClientUpdateForm = () => {
                         placeholder="client@example.com"
                         value={formData.email}
                         onChange={handleChange}
-                        required
                       />
                       {errors.email && (
                         <p className="error-message">{errors.email}</p>
@@ -240,7 +305,6 @@ const ClientUpdateForm = () => {
                       value={formData.address}
                       onChange={handleChange}
                       className="address-textarea"
-                      required
                     />
                     {errors.address && (
                       <p className="error-message">{errors.address}</p>
@@ -267,6 +331,20 @@ const ClientUpdateForm = () => {
           </div>
         </div>
       </main>
+
+      {/* Global Popup */}
+      <Popup
+        show={popupConfig.show}
+        type={popupConfig.type}
+        title={popupConfig.title}
+        message={popupConfig.message}
+        onClose={closePopup}
+        onConfirm={popupConfig.onConfirm || closePopup}
+        confirmText={popupConfig.confirmText}
+        cancelText={popupConfig.cancelText}
+        showCancel={popupConfig.showCancel}
+      />
+      <Footer />
     </div>
   );
 };

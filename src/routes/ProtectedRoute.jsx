@@ -4,19 +4,29 @@ import axiosInstance from "../api/axios";
 
 const ProtectedRoute = ({ children }) => {
   const [isAuth, setIsAuth] = useState(null);
+
   useEffect(() => {
+    let isMounted = true;
+
     const checkAuth = async () => {
       try {
         await axiosInstance.get("/api/admin/check_auth/");
-        setIsAuth(true);
+        if (isMounted) setIsAuth(true);
       } catch {
-        setIsAuth(false);
+        if (isMounted) setIsAuth(false);
       }
     };
-    checkAuth();  
+
+    checkAuth();
+
+    return () => {
+      isMounted = false;
+    };
   }, []);
+
   if (isAuth === null) return <div>Loading...</div>;
   if (!isAuth) return <Navigate to="/" replace />;
+
   return children;
 };
 

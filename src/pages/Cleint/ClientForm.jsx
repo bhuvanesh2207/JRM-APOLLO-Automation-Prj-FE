@@ -3,6 +3,8 @@ import { FaPlusCircle, FaSave, FaRedo, FaTrash } from "react-icons/fa";
 import { useParams, useNavigate } from "react-router-dom";
 import Navbar from "../../compomnents/Navbar";
 import Sidebar from "../../compomnents/Sidebar";
+import Footer from "../../compomnents/Footer";
+
 import AutoBreadcrumb from "../../compomnents/AutoBreadcrumb";
 import Popup from "../../compomnents/Popup";
 import api from "../../api/axios";
@@ -25,27 +27,18 @@ const ClientForm = () => {
   const [errors, setErrors] = useState({});
   const [submitError, setSubmitError] = useState("");
 
-  // Popup State - Updated with type support
   const [popup, setPopup] = useState({
     show: false,
-    type: "info", // 'info', 'success', 'warning', 'error', 'delete'
+    type: "info",
     title: "",
     message: "",
     onConfirm: null,
   });
 
-  // Show popup helper function
   const showPopup = (type, title, message, onConfirm = null) => {
-    setPopup({
-      show: true,
-      type,
-      title,
-      message,
-      onConfirm,
-    });
+    setPopup({ show: true, type, title, message, onConfirm });
   };
 
-  // Close popup
   const closePopup = () => {
     setPopup({
       show: false,
@@ -56,19 +49,14 @@ const ClientForm = () => {
     });
   };
 
-  // Handle confirm action
   const handleConfirm = () => {
-    if (popup.onConfirm) {
-      popup.onConfirm();
-    }
+    popup.onConfirm && popup.onConfirm();
     closePopup();
   };
 
-  /* ---------------- LOAD CLIENT (EDIT MODE) ---------------- */
+  /* ---------------- LOAD CLIENT ---------------- */
   useEffect(() => {
-    if (isEditMode) {
-      fetchClient();
-    }
+    if (isEditMode) fetchClient();
   }, [id]);
 
   const fetchClient = async () => {
@@ -82,7 +70,6 @@ const ClientForm = () => {
         address: res.data.address || "",
       });
     } catch (err) {
-      console.error("Fetch client error:", err);
       showPopup("error", "Error", "Failed to load client details.");
     }
   };
@@ -91,31 +78,13 @@ const ClientForm = () => {
   const validate = () => {
     const newErrors = {};
 
-    if (!formData.name.trim()) {
-      newErrors.name = "Name is required";
-    } else if (formData.name.trim().length < 2) {
-      newErrors.name = "Name must be at least 2 characters";
-    }
-
-    if (!formData.company_name.trim()) {
+    if (!formData.name.trim()) newErrors.name = "Name is required";
+    if (!formData.company_name.trim())
       newErrors.company_name = "Company name is required";
-    }
-
-    if (!formData.contact.trim()) {
+    if (!formData.contact.trim())
       newErrors.contact = "Contact number is required";
-    } else if (!/^[0-9+\-\s()]{7,20}$/.test(formData.contact.trim())) {
-      newErrors.contact = "Enter a valid contact number";
-    }
-
-    if (!formData.email.trim()) {
-      newErrors.email = "Email is required";
-    } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.email.trim())) {
-      newErrors.email = "Enter a valid email address";
-    }
-
-    if (!formData.address.trim()) {
-      newErrors.address = "Address is required";
-    }
+    if (!formData.email.trim()) newErrors.email = "Email is required";
+    if (!formData.address.trim()) newErrors.address = "Address is required";
 
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
@@ -125,68 +94,35 @@ const ClientForm = () => {
   const handleChange = (e) => {
     const { name, value } = e.target;
 
-    setFormData((prev) => ({
-      ...prev,
-      [name]: value,
-    }));
+    setFormData((prev) => ({ ...prev, [name]: value }));
 
-    if (errors[name]) {
-      setErrors((prev) => ({ ...prev, [name]: "" }));
-    }
+    if (errors[name]) setErrors((prev) => ({ ...prev, [name]: "" }));
     if (submitError) setSubmitError("");
   };
 
-  /* ---------------- SUBMIT (ADD / UPDATE) ---------------- */
+  /* ---------------- SUBMIT ---------------- */
   const handleSubmit = async (e) => {
     e.preventDefault();
 
     if (!validate()) {
-      formRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+      formRef.current?.scrollIntoView({ behavior: "smooth" });
       return;
     }
 
-    const payload = {
-      name: formData.name.trim(),
-      contact: formData.contact.trim(),
-      email: formData.email.trim(),
-      company_name: formData.company_name.trim(),
-      address: formData.address.trim(),
-    };
-
     try {
-      setSubmitError("");
-
       if (isEditMode) {
-        await api.put(`/api/client/update/${id}/`, payload);
-        showPopup("success", "Success!", "Client updated successfully.", () => {
-          navigate("/client/all");
-        });
-      } else {
-        await api.post("/api/client/add/", payload);
-        showPopup("success", "Success!", "Client created successfully.", () => {
-          navigate("/client/all");
-        });
-      }
-    } catch (err) {
-      console.error("Client submit error:", err.response?.data || err);
-
-      if (err.response?.data && typeof err.response.data === "object") {
-        const backendErrors = {};
-        Object.entries(err.response.data).forEach(([field, messages]) => {
-          backendErrors[field] = Array.isArray(messages)
-            ? messages.join(" ")
-            : String(messages);
-        });
-        setErrors((prev) => ({ ...prev, ...backendErrors }));
-        showPopup(
-          "warning",
-          "Validation Error",
-          "Please fix the errors below."
+        await api.put(`/api/client/update/${id}/`, formData);
+        showPopup("success", "Success", "Client updated successfully.", () =>
+          navigate("/client/all"),
         );
       } else {
-        setSubmitError("Failed to save client. Please try again.");
-        showPopup("error", "Error", "Failed to save client. Please try again.");
+        await api.post("/api/client/add/", formData);
+        showPopup("success", "Success", "Client created successfully.", () =>
+          navigate("/client/all"),
+        );
       }
+    } catch {
+      showPopup("error", "Error", "Failed to save client.");
     }
   };
 
@@ -197,21 +133,11 @@ const ClientForm = () => {
       "Delete Client",
       "Are you sure you want to delete this client? This action cannot be undone.",
       async () => {
-        try {
-          await api.delete(`/api/client/delete/${id}/`);
-          showPopup(
-            "success",
-            "Deleted!",
-            "Client deleted successfully.",
-            () => {
-              navigate("/client/all");
-            }
-          );
-        } catch (err) {
-          console.error("Delete error:", err);
-          showPopup("error", "Error", "Failed to delete client.");
-        }
-      }
+        await api.delete(`/api/client/delete/${id}/`);
+        showPopup("success", "Deleted", "Client deleted successfully.", () =>
+          navigate("/client/all"),
+        );
+      },
     );
   };
 
@@ -242,16 +168,13 @@ const ClientForm = () => {
       <main className="app-main">
         <div className="max-w-[1200px] mx-auto px-5 mt-6">
           <AutoBreadcrumb />
+
           <div className="bg-white rounded-lg shadow-lg p-6">
             <section className="form-container" ref={formRef}>
               <h2>
                 <FaPlusCircle className="domain-icon" />{" "}
                 {isEditMode ? "Edit Client" : "Add New Client"}
               </h2>
-
-              {submitError && (
-                <div className="alert alert-error mb-4">{submitError}</div>
-              )}
 
               <form onSubmit={handleSubmit} noValidate>
                 <div className="form-group date-group">
@@ -260,6 +183,7 @@ const ClientForm = () => {
                     <input
                       type="text"
                       name="name"
+                      placeholder="Enter client name"
                       value={formData.name}
                       onChange={handleChange}
                     />
@@ -273,6 +197,7 @@ const ClientForm = () => {
                     <input
                       type="text"
                       name="company_name"
+                      placeholder="Enter company name"
                       value={formData.company_name}
                       onChange={handleChange}
                     />
@@ -288,6 +213,7 @@ const ClientForm = () => {
                     <input
                       type="text"
                       name="contact"
+                      placeholder="e.g. +91 98765 43210"
                       value={formData.contact}
                       onChange={handleChange}
                     />
@@ -301,6 +227,7 @@ const ClientForm = () => {
                     <input
                       type="email"
                       name="email"
+                      placeholder="example@company.com"
                       value={formData.email}
                       onChange={handleChange}
                       disabled={isEditMode}
@@ -315,6 +242,7 @@ const ClientForm = () => {
                   <label className="required">Address</label>
                   <textarea
                     name="address"
+                    placeholder="Enter full client address"
                     value={formData.address}
                     onChange={handleChange}
                     rows="3"
@@ -325,7 +253,7 @@ const ClientForm = () => {
                 </div>
 
                 <div className="form-actions">
-                  <button type="submit" className="btn btn-primary">
+                  <button type="submit" className="btn btn-secondary">
                     <FaSave /> {isEditMode ? "Update Client" : "Save Client"}
                   </button>
 
@@ -338,16 +266,6 @@ const ClientForm = () => {
                       <FaRedo /> Reset
                     </button>
                   )}
-
-                  {isEditMode && (
-                    <button
-                      type="button"
-                      className="btn btn-danger"
-                      onClick={handleDelete}
-                    >
-                      <FaTrash /> Delete
-                    </button>
-                  )}
                 </div>
               </form>
             </section>
@@ -355,7 +273,6 @@ const ClientForm = () => {
         </div>
       </main>
 
-      {/* Professional Popup Component */}
       <Popup
         show={popup.show}
         type={popup.type}
@@ -367,6 +284,7 @@ const ClientForm = () => {
         cancelText="Cancel"
         showCancel={popup.type === "delete"}
       />
+      <Footer />
     </div>
   );
 };

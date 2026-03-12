@@ -1,36 +1,64 @@
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useRef, useEffect } from "react";
 import {
   FaPlusCircle,
-  FaArrowRight,
-  FaRedo,
   FaSave,
+  FaRedo,
+  FaArrowRight,
   FaArrowLeft,
 } from "react-icons/fa";
 import Navbar from "../../compomnents/Navbar";
 import Sidebar from "../../compomnents/Sidebar";
 import AutoBreadcrumb from "../../compomnents/AutoBreadcrumb";
+import Footer from "../../compomnents/Footer";
+
+import Popup from "../../compomnents/Popup"; // Your modern popup
+
 import api from "../../api/axios";
-import Popup from "../../compomnents/Popup"; // 1. IMPORT POPUP COMPONENT
+import { useNavigate } from "react-router-dom";
 
 const DomainForm = () => {
   const formRef = useRef(null);
+  const navigate = useNavigate();
 
   const today = new Date();
   const minPurchaseDate = "2000-01-01";
   const maxPurchaseDate = today.toISOString().split("T")[0];
 
+  // Step State
   const [currentStep, setCurrentStep] = useState(1);
 
-  // ✅ Clients from API
+  // Clients from API
   const [clients, setClients] = useState([]);
 
-  // 2. STATE FOR POPUP
-  const [popupState, setPopupState] = useState({
+  // Full-featured popup state
+  const [popupConfig, setPopupConfig] = useState({
     show: false,
+    type: "info",
     title: "",
     message: "",
-    isSuccess: false,
+    confirmText: "OK",
+    cancelText: "Cancel",
+    showCancel: false,
+    onConfirm: null,
   });
+
+  const openPopup = (config) => {
+    setPopupConfig({
+      show: true,
+      type: "info",
+      title: "",
+      message: "",
+      confirmText: "OK",
+      cancelText: "Cancel",
+      showCancel: false,
+      onConfirm: null,
+      ...config,
+    });
+  };
+
+  const closePopup = () => {
+    setPopupConfig((prev) => ({ ...prev, show: false }));
+  };
 
   const [formData, setFormData] = useState({
     client_name: "",
@@ -38,7 +66,7 @@ const DomainForm = () => {
     registrar: "",
     purchase_date: "",
     expiry_date: "",
-    active_status: true, // boolean
+    active_status: true,
 
     ssh_name: "",
     ssh_purchase_date: "",
@@ -51,19 +79,17 @@ const DomainForm = () => {
 
   const [errors, setErrors] = useState({});
 
-  // --------- FETCH CLIENT NAMES ---------
+  // FETCH CLIENT NAMES
   useEffect(() => {
     const fetchClients = async () => {
       try {
         const res = await api.get("/api/client/names/");
-        setClients(res.data.clients);
+        setClients(res.data.clients || []);
       } catch (err) {
-        console.error("Failed to fetch clients", err);
-        setPopupState({
-          show: true,
-          title: "Error",
-          message: "Failed to load client data. Please refresh the page.",
-          isSuccess: false,
+        openPopup({
+          type: "error",
+          title: "Failed to Load Clients",
+          message: "Could not fetch client list. You can still continue.",
         });
       }
     };
@@ -71,137 +97,114 @@ const DomainForm = () => {
     fetchClients();
   }, []);
 
-  // --------- HANDLERS ---------
+  // HANDLERS
   const handleChange = (e) => {
     const { name, value, type, checked } = e.target;
-
     setFormData((prev) => ({
       ...prev,
       [name]: type === "checkbox" ? checked : value,
     }));
-
     setErrors((prev) => ({ ...prev, [name]: "" }));
   };
 
   const handleReset = () => {
-    setFormData({
-      client_name: "",
-      domain_name: "",
-      registrar: "",
-      purchase_date: "",
-      expiry_date: "",
-      active_status: true,
-      ssh_name: "",
-      ssh_purchase_date: "",
-      ssh_expiry_date: "",
-      hosting_name: "",
-      hosting_purchase_date: "",
-      hosting_expiry_date: "",
+    openPopup({
+      type: "warning",
+      title: "Reset Form",
+      message: "Are you sure you want to clear all fields and start over?",
+      showCancel: true,
+      confirmText: "Yes, Reset",
+      onConfirm: () => {
+        setFormData({
+          client_name: "",
+          domain_name: "",
+          registrar: "",
+          purchase_date: "",
+          expiry_date: "",
+          active_status: true,
+          ssh_name: "",
+          ssh_purchase_date: "",
+          ssh_expiry_date: "",
+          hosting_name: "",
+          hosting_purchase_date: "",
+          hosting_expiry_date: "",
+        });
+        setErrors({});
+        setCurrentStep(1);
+        closePopup();
+      },
     });
-    setErrors({});
-    setCurrentStep(1); // Reset to first step
   };
 
-  // 3. HANDLER TO CLOSE POPUP AND RESET FORM ON SUCCESS
-  const handleClosePopup = () => {
-    const wasSuccess = popupState.isSuccess;
-    setPopupState({ show: false, title: "", message: "", isSuccess: false });
-    if (wasSuccess) {
-      handleReset();
-    }
-  };
-
-  // --------- VALIDATION ---------
+  // VALIDATION
   const validateStep = (step) => {
     const newErrors = {};
-    const {
-      client_name,
-      domain_name,
-      registrar,
-      purchase_date,
-      expiry_date,
-      ssh_name,
-      ssh_purchase_date,
-      ssh_expiry_date,
-      hosting_name,
-      hosting_purchase_date,
-      hosting_expiry_date,
-    } = formData;
-
     const domainRegex =
       /^(?!https?:\/\/)(?!www\.)[a-zA-Z0-9-]+(\.[a-zA-Z0-9-]+)*\.[a-zA-Z]{2,}$/;
 
-    // --- STEP 1: DOMAIN VALIDATION ---
     if (step === 1) {
-      if (!client_name) newErrors.client_name = "Client is required.";
-
-      if (!domain_name.trim()) {
+      if (!formData.client_name) newErrors.client_name = "Client is required.";
+      if (!formData.domain_name.trim())
         newErrors.domain_name = "Domain name is required.";
-      } else if (!domainRegex.test(domain_name.trim())) {
-        newErrors.domain_name = "Enter a valid domain (example: example.com).";
-      }
+      else if (!domainRegex.test(formData.domain_name.trim()))
+        newErrors.domain_name = "Enter a valid domain (e.g. example.com)";
 
-      if (!registrar.trim()) newErrors.registrar = "Registrar is required.";
-      if (!purchase_date)
+      if (!formData.registrar.trim())
+        newErrors.registrar = "Registrar is required.";
+      if (!formData.purchase_date)
         newErrors.purchase_date = "Purchase date is required.";
-      if (!expiry_date) newErrors.expiry_date = "Expiry date is required.";
+      if (!formData.expiry_date)
+        newErrors.expiry_date = "Expiry date is required.";
 
-      if (purchase_date && expiry_date) {
-        if (new Date(expiry_date) <= new Date(purchase_date)) {
-          newErrors.expiry_date =
-            "Domain expiry date must be after purchase date.";
+      if (formData.purchase_date && formData.expiry_date) {
+        if (
+          new Date(formData.expiry_date) <= new Date(formData.purchase_date)
+        ) {
+          newErrors.expiry_date = "Expiry date must be after purchase date.";
         }
       }
     }
 
-    // --- STEP 2: SSH VALIDATION ---
-    if (step === 2) {
-      if (ssh_name.trim()) {
-        if (!ssh_purchase_date)
-          newErrors.ssh_purchase_date = "SSH purchase date is required.";
-        if (!ssh_expiry_date)
-          newErrors.ssh_expiry_date = "SSH expiry date is required.";
-
-        if (ssh_purchase_date && ssh_expiry_date) {
-          if (new Date(ssh_expiry_date) <= new Date(ssh_purchase_date)) {
-            newErrors.ssh_expiry_date =
-              "SSH expiry date must be after SSH purchase date.";
-          }
-        }
+    if (step === 2 && formData.ssh_name.trim()) {
+      if (!formData.ssh_purchase_date)
+        newErrors.ssh_purchase_date = "SSH purchase date is required.";
+      if (!formData.ssh_expiry_date)
+        newErrors.ssh_expiry_date = "SSH expiry date is required.";
+      if (
+        formData.ssh_purchase_date &&
+        formData.ssh_expiry_date &&
+        new Date(formData.ssh_expiry_date) <=
+          new Date(formData.ssh_purchase_date)
+      ) {
+        newErrors.ssh_expiry_date = "SSH expiry must be after purchase date.";
       }
     }
 
-    // --- STEP 3: HOSTING VALIDATION ---
-    if (step === 3) {
-      if (hosting_name.trim()) {
-        if (!hosting_purchase_date)
-          newErrors.hosting_purchase_date =
-            "Hosting purchase date is required.";
-        if (!hosting_expiry_date)
-          newErrors.hosting_expiry_date = "Hosting expiry date is required.";
-
-        if (hosting_purchase_date && hosting_expiry_date) {
-          if (
-            new Date(hosting_expiry_date) <= new Date(hosting_purchase_date)
-          ) {
-            newErrors.hosting_expiry_date =
-              "Hosting expiry date must be after Hosting purchase date.";
-          }
-        }
+    if (step === 3 && formData.hosting_name.trim()) {
+      if (!formData.hosting_purchase_date)
+        newErrors.hosting_purchase_date = "Hosting purchase date is required.";
+      if (!formData.hosting_expiry_date)
+        newErrors.hosting_expiry_date = "Hosting expiry date is required.";
+      if (
+        formData.hosting_purchase_date &&
+        formData.hosting_expiry_date &&
+        new Date(formData.hosting_expiry_date) <=
+          new Date(formData.hosting_purchase_date)
+      ) {
+        newErrors.hosting_expiry_date =
+          "Hosting expiry must be after purchase date.";
       }
     }
 
     return newErrors;
   };
 
-  // --------- NAVIGATION ---------
   const handleNext = () => {
     const stepErrors = validateStep(currentStep);
     if (Object.keys(stepErrors).length > 0) {
       setErrors(stepErrors);
-      const firstField = Object.keys(stepErrors)[0];
-      const el = formRef.current?.querySelector(`[name="${firstField}"]`);
-      if (el) el.focus();
+      const firstError = Object.keys(stepErrors)[0];
+      formRef.current?.querySelector(`[name="${firstError}"]`)?.focus();
     } else {
       setErrors({});
       setCurrentStep((prev) => prev + 1);
@@ -213,13 +216,17 @@ const DomainForm = () => {
     setCurrentStep((prev) => prev - 1);
   };
 
-  // --------- SUBMIT ---------
   const handleSubmit = async (e) => {
     e.preventDefault();
 
-    const validationErrors = validateStep(3);
-    if (Object.keys(validationErrors).length > 0) {
-      setErrors(validationErrors);
+    const finalErrors = validateStep(3);
+    if (Object.keys(finalErrors).length > 0) {
+      setErrors(finalErrors);
+      openPopup({
+        type: "error",
+        title: "Validation Failed",
+        message: "Please fix the errors before submitting.",
+      });
       return;
     }
 
@@ -229,10 +236,12 @@ const DomainForm = () => {
       registrar: formData.registrar.trim() || null,
       purchase_date: formData.purchase_date || null,
       expiry_date: formData.expiry_date || null,
-      active_status: !!formData.active_status,
+      active_status: formData.active_status,
+
       ssh_name: formData.ssh_name.trim() || null,
       ssh_purchase_date: formData.ssh_purchase_date || null,
       ssh_expiry_date: formData.ssh_expiry_date || null,
+
       hosting_name: formData.hosting_name.trim() || null,
       hosting_purchase_date: formData.hosting_purchase_date || null,
       hosting_expiry_date: formData.hosting_expiry_date || null,
@@ -240,28 +249,31 @@ const DomainForm = () => {
 
     try {
       await api.post("/api/domain/add/", payload);
-      console.log("Submitting:", payload);
 
-      // 4. USE POPUP INSTEAD OF ALERT
-      setPopupState({
-        show: true,
-        title: "Success",
-        message: "Domain has been added successfully!",
-        isSuccess: true,
+      openPopup({
+        type: "success",
+        title: "Domain Added Successfully!",
+        message: "Your domain has been saved.",
+        confirmText: "Go to List",
+        showCancel: true,
+        cancelText: "Add Another",
+        onConfirm: () => navigate("/domain/all"),
+        // Cancel = stay & add another
       });
-      // The handleClosePopup will now trigger handleReset()
-    } catch (err) {
-      console.log(err.response?.data);
-      const errorMessage = err.response?.data?.errors
-        ? Object.values(err.response.data.errors).join("\n")
-        : "An unexpected server error occurred. Please try again.";
 
-      // 4. USE POPUP FOR ERRORS
-      setPopupState({
-        show: true,
-        title: "Submission Failed",
-        message: errorMessage,
-        isSuccess: false,
+      // Only reset if user wants to add another
+      if (!popupConfig.onConfirm) {
+        handleReset();
+      }
+    } catch (err) {
+      const errorMsg = err.response?.data?.errors
+        ? Object.values(err.response.data.errors).flat().join(" ")
+        : err.response?.data?.error || "Failed to add domain.";
+
+      openPopup({
+        type: "error",
+        title: "Failed to Save",
+        message: errorMsg,
       });
     }
   };
@@ -293,11 +305,11 @@ const DomainForm = () => {
                 {currentStep === 1 && " Domain Details"}
                 {currentStep === 2 && " SSH Details"}
                 {currentStep === 3 && " Hosting Details"}
-                <span className="step-indicator">(Step {currentStep}/3)</span>
+                <span className="step-indicator"> (Step {currentStep}/3)</span>
               </h2>
 
               <form onSubmit={(e) => e.preventDefault()} noValidate>
-                {/* ================= STEP 1: DOMAIN ================= */}
+                {/* STEP 1: DOMAIN */}
                 {currentStep === 1 && (
                   <>
                     <div style={twoColStyle}>
@@ -319,6 +331,7 @@ const DomainForm = () => {
                           <p className="error-message">{errors.client_name}</p>
                         )}
                       </div>
+
                       <div className="form-group">
                         <label className="required">Domain Name</label>
                         <input
@@ -333,6 +346,7 @@ const DomainForm = () => {
                         )}
                       </div>
                     </div>
+
                     <div style={twoColStyle}>
                       <div className="form-group">
                         <label className="required">Registrar</label>
@@ -346,8 +360,9 @@ const DomainForm = () => {
                           <p className="error-message">{errors.registrar}</p>
                         )}
                       </div>
+
                       <div className="form-group">
-                        <label className="required">Active Status</label>
+                        <label className="required">Status</label>
                         <div
                           className="radio-group"
                           style={{ marginTop: "10px" }}
@@ -356,7 +371,6 @@ const DomainForm = () => {
                             <input
                               type="radio"
                               name="active_status"
-                              value="true"
                               checked={formData.active_status === true}
                               onChange={() =>
                                 setFormData({
@@ -364,14 +378,13 @@ const DomainForm = () => {
                                   active_status: true,
                                 })
                               }
-                            />
+                            />{" "}
                             Active
                           </label>
                           <label>
                             <input
                               type="radio"
                               name="active_status"
-                              value="false"
                               checked={formData.active_status === false}
                               onChange={() =>
                                 setFormData({
@@ -379,12 +392,13 @@ const DomainForm = () => {
                                   active_status: false,
                                 })
                               }
-                            />
+                            />{" "}
                             Inactive
                           </label>
                         </div>
                       </div>
                     </div>
+
                     <div className="form-group date-group">
                       <div>
                         <label className="required">Purchase Date</label>
@@ -418,7 +432,8 @@ const DomainForm = () => {
                     </div>
                   </>
                 )}
-                {/* ================= STEP 2: SSH ================= */}
+
+                {/* STEP 2: SSH */}
                 {currentStep === 2 && (
                   <>
                     <h3 className="section-title mt-2">
@@ -429,7 +444,7 @@ const DomainForm = () => {
                       <input
                         type="text"
                         name="ssh_name"
-                        placeholder="e.g. DigitalOcean SSH"
+                        placeholder="e.g. DigitalOcean Droplet"
                         value={formData.ssh_name}
                         onChange={handleChange}
                       />
@@ -444,7 +459,7 @@ const DomainForm = () => {
                           max={maxPurchaseDate}
                           value={formData.ssh_purchase_date}
                           onChange={handleChange}
-                          disabled={!formData.ssh_name}
+                          disabled={!formData.ssh_name.trim()}
                         />
                         {errors.ssh_purchase_date && (
                           <p className="error-message">
@@ -460,7 +475,7 @@ const DomainForm = () => {
                           min={formData.ssh_purchase_date || minPurchaseDate}
                           value={formData.ssh_expiry_date}
                           onChange={handleChange}
-                          disabled={!formData.ssh_name}
+                          disabled={!formData.ssh_name.trim()}
                         />
                         {errors.ssh_expiry_date && (
                           <p className="error-message">
@@ -471,7 +486,8 @@ const DomainForm = () => {
                     </div>
                   </>
                 )}
-                {/* ================= STEP 3: HOSTING ================= */}
+
+                {/* STEP 3: HOSTING */}
                 {currentStep === 3 && (
                   <>
                     <h3 className="section-title mt-2">
@@ -482,7 +498,7 @@ const DomainForm = () => {
                       <input
                         type="text"
                         name="hosting_name"
-                        placeholder="e.g. AWS / Hostinger"
+                        placeholder="e.g. Hostinger, AWS, Vercel"
                         value={formData.hosting_name}
                         onChange={handleChange}
                       />
@@ -497,7 +513,7 @@ const DomainForm = () => {
                           max={maxPurchaseDate}
                           value={formData.hosting_purchase_date}
                           onChange={handleChange}
-                          disabled={!formData.hosting_name}
+                          disabled={!formData.hosting_name.trim()}
                         />
                         {errors.hosting_purchase_date && (
                           <p className="error-message">
@@ -515,7 +531,7 @@ const DomainForm = () => {
                           }
                           value={formData.hosting_expiry_date}
                           onChange={handleChange}
-                          disabled={!formData.hosting_name}
+                          disabled={!formData.hosting_name.trim()}
                         />
                         {errors.hosting_expiry_date && (
                           <p className="error-message">
@@ -526,7 +542,8 @@ const DomainForm = () => {
                     </div>
                   </>
                 )}
-                {/* ================= ACTIONS ================= */}
+
+                {/* Navigation Buttons */}
                 <div
                   className="form-actions mt-6"
                   style={{ justifyContent: "space-between" }}
@@ -540,8 +557,9 @@ const DomainForm = () => {
                       <FaArrowLeft /> Previous
                     </button>
                   ) : (
-                    <div></div>
+                    <div />
                   )}
+
                   <div style={{ display: "flex", gap: "10px" }}>
                     {currentStep < 3 ? (
                       <button
@@ -565,7 +583,7 @@ const DomainForm = () => {
                           className="btn btn-secondary"
                           onClick={handleSubmit}
                         >
-                          <FaSave /> Save
+                          <FaSave /> Save Domain
                         </button>
                       </>
                     )}
@@ -577,13 +595,19 @@ const DomainForm = () => {
         </div>
       </main>
 
-      {/* 5. RENDER POPUP COMPONENT */}
+      {/* Modern Popup */}
       <Popup
-        show={popupState.show}
-        title={popupState.title}
-        message={popupState.message}
-        onClose={handleClosePopup}
+        show={popupConfig.show}
+        type={popupConfig.type}
+        title={popupConfig.title}
+        message={popupConfig.message}
+        onClose={closePopup}
+        onConfirm={popupConfig.onConfirm || closePopup}
+        confirmText={popupConfig.confirmText}
+        cancelText={popupConfig.cancelText}
+        showCancel={popupConfig.showCancel}
       />
+      <Footer />
     </div>
   );
 };

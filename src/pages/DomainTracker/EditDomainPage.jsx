@@ -3,7 +3,10 @@ import { useParams, useNavigate } from "react-router-dom";
 import { FaEdit, FaArrowLeft } from "react-icons/fa";
 import Navbar from "../../compomnents/Navbar";
 import Sidebar from "../../compomnents/Sidebar";
+import Footer from "../../compomnents/Footer";
+
 import AutoBreadcrumb from "../../compomnents/AutoBreadcrumb";
+import Popup from "../../compomnents/Popup";
 import api from "../../api/axios";
 
 const EditDomainPage = () => {
@@ -35,6 +38,45 @@ const EditDomainPage = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [errors, setErrors] = useState({});
+
+  // Popup State
+  const [popup, setPopup] = useState({
+    show: false,
+    type: "info",
+    title: "",
+    message: "",
+    onConfirm: null,
+  });
+
+  // Show popup helper function
+  const showPopup = (type, title, message, onConfirm = null) => {
+    setPopup({
+      show: true,
+      type,
+      title,
+      message,
+      onConfirm,
+    });
+  };
+
+  // Close popup
+  const closePopup = () => {
+    setPopup({
+      show: false,
+      type: "info",
+      title: "",
+      message: "",
+      onConfirm: null,
+    });
+  };
+
+  // Handle confirm action
+  const handleConfirm = () => {
+    if (popup.onConfirm) {
+      popup.onConfirm();
+    }
+    closePopup();
+  };
 
   // ---------------- FETCH ----------------
   const fetchDomainDetails = async () => {
@@ -209,13 +251,20 @@ const EditDomainPage = () => {
         changes_message: "Updated domain info",
       };
       const res = await api.patch(`/api/domain/update/${id}/`, payload);
-      alert(res.data.message || "Domain info updated!");
+
+      showPopup(
+        "success",
+        "Success",
+        res.data.message || "Domain info updated!",
+      );
     } catch (err) {
       console.error(err.response?.data);
-      alert(
+      showPopup(
+        "error",
+        "Error",
         err.response?.data?.errors
           ? JSON.stringify(err.response.data.errors)
-          : "Server error"
+          : "Server error",
       );
     }
   };
@@ -235,10 +284,19 @@ const EditDomainPage = () => {
         changes_message: "Updated SSH details",
       };
       const res = await api.patch(`/api/domain/update/${id}/`, payload);
-      alert(res.data.message || "SSH details updated!");
+
+      showPopup(
+        "success",
+        "Success",
+        res.data.message || "SSH details updated!",
+      );
     } catch (err) {
       console.error(err);
-      alert("Server error. Could not update SSH details.");
+      showPopup(
+        "error",
+        "Error",
+        "Server error. Could not update SSH details.",
+      );
     }
   };
 
@@ -257,10 +315,18 @@ const EditDomainPage = () => {
         changes_message: "Updated Hosting details",
       };
       const res = await api.patch(`/api/domain/update/${id}/`, payload);
-      alert(res.data.message || "Hosting details updated!");
+      showPopup(
+        "success",
+        "Success!",
+        res.data.message || "Hosting details updated!",
+      );
     } catch (err) {
       console.error(err);
-      alert("Server error. Could not update Hosting details.");
+      showPopup(
+        "error",
+        "Error",
+        "Server error. Could not update Hosting details.",
+      );
     }
   };
 
@@ -590,6 +656,17 @@ const EditDomainPage = () => {
           </div>
         </div>
       </main>
+
+      {/* Popup component */}
+      <Popup
+        show={popup.show}
+        type={popup.type}
+        title={popup.title}
+        message={popup.message}
+        onClose={closePopup}
+        onConfirm={handleConfirm}
+      />
+      <Footer />
     </div>
   );
 };

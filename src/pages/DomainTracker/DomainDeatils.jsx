@@ -1,11 +1,15 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { FaEdit, FaTrashAlt, FaHistory, FaList } from "react-icons/fa";
 import Navbar from "../../compomnents/Navbar";
 import Sidebar from "../../compomnents/Sidebar";
-import AutoBreadcrumb from "../../compomnents/AutoBreadcrumb";
+import Footer from "../../compomnents/Footer";
 
+import AutoBreadcrumb from "../../compomnents/AutoBreadcrumb";
+import Popup from "../../compomnents/Popup";
 import api from "../../api/axios";
+// If you put the CSS in its own file, e.g. "./DomainDetails.css", import it here:
+// import "./DomainDetails.css";
 
 const DomainDetails = () => {
   const navigate = useNavigate();
@@ -13,10 +17,49 @@ const DomainDetails = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
 
-  // Pagination & Search state
+  // Pagination & Search
   const [search, setSearch] = useState("");
-  const [entriesPerPage, setEntriesPerPage] = useState(10);
+  const [entriesPerPage, setEntriesPerPage] = useState(5);
   const [currentPage, setCurrentPage] = useState(1);
+
+  // Sort (expiry filter)
+  const [sortFilter, setSortFilter] = useState("all"); // "all" = Clear
+  const [showSortDropdown, setShowSortDropdown] = useState(false);
+  const sortFilterRef = useRef(null);
+
+  // NEW: entries-per-page dropdown
+  const [showEntriesDropdown, setShowEntriesDropdown] = useState(false);
+  const entriesDropdownRef = useRef(null);
+
+  // Popup state
+  const [popupConfig, setPopupConfig] = useState({
+    show: false,
+    type: "info",
+    title: "",
+    message: "",
+    confirmText: "OK",
+    cancelText: "Cancel",
+    showCancel: false,
+    onConfirm: null,
+  });
+
+  const openPopup = (config) => {
+    setPopupConfig({
+      show: true,
+      type: "info",
+      title: "",
+      message: "",
+      confirmText: "OK",
+      cancelText: "Cancel",
+      showCancel: false,
+      onConfirm: null,
+      ...config,
+    });
+  };
+
+  const closePopup = () => {
+    setPopupConfig((prev) => ({ ...prev, show: false }));
+  };
 
   /* ---------------- FETCH DOMAINS ---------------- */
   const fetchDomains = async () => {
@@ -25,6 +68,7 @@ const DomainDetails = () => {
       const res = await api.get("/api/domain/list/");
       if (res.data.success) {
         setDomains(res.data.domains || []);
+        setError("");
       } else {
         setError("Failed to fetch domains.");
       }
@@ -39,19 +83,63 @@ const DomainDetails = () => {
     fetchDomains();
   }, []);
 
+  // Close sort + entries dropdown when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (
+        sortFilterRef.current &&
+        !sortFilterRef.current.contains(event.target)
+      ) {
+        setShowSortDropdown(false);
+      }
+
+      if (
+        entriesDropdownRef.current &&
+        !entriesDropdownRef.current.contains(event.target)
+      ) {
+        setShowEntriesDropdown(false);
+      }
+    };
+
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
+
   /* ---------------- HANDLERS ---------------- */
   const handleEditDomain = (id) => navigate(`/domain/update/${id}`);
 
-  const handleDeleteDomain = async (id) => {
-    if (!window.confirm("Are you sure you want to delete this domain?")) return;
+  const handleDeleteDomain = (id) => {
+    openPopup({
+      type: "delete",
+      title: "Delete Domain",
+      message: "Are you sure you want to delete this domain?",
+      showCancel: true,
+      confirmText: "Delete",
+      cancelText: "Cancel",
+      onConfirm: async () => {
+        closePopup();
+        try {
+          await api.delete(`/api/domain/delete/${id}/`);
+          await fetchDomains();
 
-    try {
-      await api.delete(`/api/domain/delete/${id}/`);
-      alert("Domain deleted successfully");
-      fetchDomains();
-    } catch (err) {
-      alert("Server error while deleting domain");
-    }
+          openPopup({
+            type: "success",
+            title: "Deleted",
+            message: "Domain deleted successfully.",
+            confirmText: "OK",
+            showCancel: false,
+          });
+        } catch (err) {
+          openPopup({
+            type: "error",
+            title: "Error",
+            message: "Server error while deleting domain.",
+            confirmText: "OK",
+            showCancel: false,
+          });
+        }
+      },
+    });
   };
 
   const handleViewHistory = (id) => {
@@ -62,12 +150,17 @@ const DomainDetails = () => {
     navigate("/domain/history/all");
   };
 
+  const handleSortChange = (value) => {
+    setSortFilter(value);
+    setCurrentPage(1);
+    setShowSortDropdown(false);
+  };
+
   /* ---------------- DATE RENDERING LOGIC ---------------- */
   const renderExpiryContent = (dateStr) => {
     if (!dateStr) return <span className="text-gray-500">N/A</span>;
 
     const today = new Date();
-    // Normalize time to midnight to calculate day difference correctly
     today.setHours(0, 0, 0, 0);
 
     const expiry = new Date(dateStr);
@@ -82,7 +175,6 @@ const DomainDetails = () => {
       year: "numeric",
     });
 
-    // 1. Expired (Past date)
     if (days < 0) {
       return (
         <span style={{ color: "red", fontWeight: "bold" }}>
@@ -91,23 +183,14 @@ const DomainDetails = () => {
       );
     }
 
-    // 2. Within 1 week (<= 7 days)
     if (days <= 7) {
       return <span style={{ color: "red" }}>{formattedDate}</span>;
     }
 
-    // 3. Within 1 month (<= 30 days)
     if (days <= 30) {
-      return (
-        <span style={{ color: "orangered" }}>
-          {" "}
-          {/* Red-Orange */}
-          {formattedDate}
-        </span>
-      );
+      return <span style={{ color: "orangered" }}>{formattedDate}</span>;
     }
 
-    // 4. Safe (> 30 days)
     return (
       <span style={{ color: "black", fontWeight: "bold" }}>
         {formattedDate}
@@ -115,7 +198,6 @@ const DomainDetails = () => {
     );
   };
 
-  // Simple formatter for non-expiry dates (like purchase date)
   const formatSimpleDate = (d) =>
     d
       ? new Date(d).toLocaleDateString("en-IN", {
@@ -125,15 +207,66 @@ const DomainDetails = () => {
         })
       : "N/A";
 
+  /* ---------------- SORT FILTER HELPERS ---------------- */
+  const getDaysFromToday = (dateStr) => {
+    if (!dateStr) return null;
+
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+
+    const target = new Date(dateStr);
+    target.setHours(0, 0, 0, 0);
+
+    const diffTime = target - today;
+    return Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+  };
+
+  const passesSortFilter = (domain, filter) => {
+    const dDomain = getDaysFromToday(domain.expiry_date);
+    const dSSH = getDaysFromToday(domain.ssh_expiry_date);
+    const dHosting = getDaysFromToday(domain.hosting_expiry_date);
+
+    switch (filter) {
+      case "expired":
+        return dDomain !== null && dDomain < 0;
+
+      case "domain_week":
+        return dDomain !== null && dDomain >= 0 && dDomain <= 7;
+
+      case "ssh_week":
+        return dSSH !== null && dSSH >= 0 && dSSH <= 7;
+
+      case "hosting_week":
+        return dHosting !== null && dHosting >= 0 && dHosting <= 7;
+
+      case "domain_month":
+        return dDomain !== null && dDomain > 7 && dDomain <= 30;
+
+      case "ssh_month":
+        return dSSH !== null && dSSH > 7 && dSSH <= 30;
+
+      case "hosting_month":
+        return dHosting !== null && dHosting > 7 && dHosting <= 30;
+
+      case "all":
+      default:
+        return true;
+    }
+  };
+
   /* ---------------- FILTERING & PAGINATION ---------------- */
   const filteredDomains = domains.filter((domain) => {
-    if (!search) return true;
-    const term = search.toLowerCase();
-    return (
-      domain.domain_name?.toLowerCase().includes(term) ||
-      domain.registrar?.toLowerCase().includes(term) ||
-      domain.hosting_name?.toLowerCase().includes(term)
-    );
+    if (search) {
+      const term = search.toLowerCase();
+      const matchesSearch =
+        domain.domain_name?.toLowerCase().includes(term) ||
+        domain.registrar?.toLowerCase().includes(term) ||
+        domain.hosting_name?.toLowerCase().includes(term);
+
+      if (!matchesSearch) return false;
+    }
+
+    return passesSortFilter(domain, sortFilter);
   });
 
   const totalEntries = filteredDomains.length;
@@ -142,7 +275,7 @@ const DomainDetails = () => {
 
   const paginatedDomains = filteredDomains.slice(
     (currentPage - 1) * entriesPerPage,
-    currentPage * entriesPerPage
+    currentPage * entriesPerPage,
   );
 
   const startEntry =
@@ -210,33 +343,193 @@ const DomainDetails = () => {
                   marginBottom: 12,
                 }}
               >
-                <div>
-                  <select
-                    value={entriesPerPage}
-                    onChange={(e) => {
-                      setEntriesPerPage(Number(e.target.value));
-                      setCurrentPage(1);
-                    }}
-                    style={{ marginRight: 8 }}
+                {/* LEFT: entries-per-page dropdown */}
+                <div className="table-controls-left">
+                  <div
+                    className="sort-filter-wrapper sort-filter-wrapper-left"
+                    ref={entriesDropdownRef}
                   >
-                    {[10, 25, 50, 100].map((num) => (
-                      <option key={num} value={num}>
-                        {num}
-                      </option>
-                    ))}
-                  </select>
-                  entries per page
+                    <button
+                      type="button"
+                      className="btn btn-sort"
+                      onClick={() => setShowEntriesDropdown((prev) => !prev)}
+                    >
+                      <span>{entriesPerPage} / page</span>
+                      <span className="sort-filter-caret" />
+                    </button>
+
+                    {showEntriesDropdown && (
+                      <div className="sort-filter-dropdown">
+                        {[5, 10, 25, 50].map((num) => (
+                          <button
+                            key={num}
+                            type="button"
+                            className="sort-filter-option"
+                            onClick={() => {
+                              setEntriesPerPage(num);
+                              setCurrentPage(1);
+                              setShowEntriesDropdown(false);
+                            }}
+                          >
+                            <span
+                              className={
+                                "sort-filter-checkbox" +
+                                (entriesPerPage === num ? " checked" : "")
+                              }
+                            />
+                            <span>{num} entries per page</span>
+                          </button>
+                        ))}
+                      </div>
+                    )}
+                  </div>
                 </div>
-                <div className="table-search">
-                  <input
-                    type="text"
-                    value={search}
-                    onChange={(e) => {
-                      setSearch(e.target.value);
-                      setCurrentPage(1);
-                    }}
-                    placeholder="Search domains"
-                  />
+
+                {/* RIGHT: search + sort dropdown */}
+                <div className="table-controls-right">
+                  <div className="table-search">
+                    <input
+                      type="text"
+                      value={search}
+                      onChange={(e) => {
+                        setSearch(e.target.value);
+                        setCurrentPage(1);
+                      }}
+                      placeholder="Search domains"
+                    />
+                  </div>
+
+                  {/* Sort button with dropdown */}
+                  <div className="sort-filter-wrapper" ref={sortFilterRef}>
+                    <button
+                      type="button"
+                      className="btn btn-sort"
+                      onClick={() => setShowSortDropdown((prev) => !prev)}
+                    >
+                      <span>Sort</span>
+                      <span className="sort-filter-caret" />
+                    </button>
+
+                    {showSortDropdown && (
+                      <div className="sort-filter-dropdown">
+                        <button
+                          type="button"
+                          className="sort-filter-option"
+                          onClick={() => handleSortChange("expired")}
+                        >
+                          <span
+                            className={
+                              "sort-filter-checkbox" +
+                              (sortFilter === "expired" ? " checked" : "")
+                            }
+                          />
+                          <span>Expired</span>
+                        </button>
+
+                        <button
+                          type="button"
+                          className="sort-filter-option"
+                          onClick={() => handleSortChange("domain_week")}
+                        >
+                          <span
+                            className={
+                              "sort-filter-checkbox" +
+                              (sortFilter === "domain_week" ? " checked" : "")
+                            }
+                          />
+                          <span>Domain expiring in week</span>
+                        </button>
+
+                        <button
+                          type="button"
+                          className="sort-filter-option"
+                          onClick={() => handleSortChange("ssh_week")}
+                        >
+                          <span
+                            className={
+                              "sort-filter-checkbox" +
+                              (sortFilter === "ssh_week" ? " checked" : "")
+                            }
+                          />
+                          <span>SSH expiring in week</span>
+                        </button>
+
+                        <button
+                          type="button"
+                          className="sort-filter-option"
+                          onClick={() => handleSortChange("hosting_week")}
+                        >
+                          <span
+                            className={
+                              "sort-filter-checkbox" +
+                              (sortFilter === "hosting_week" ? " checked" : "")
+                            }
+                          />
+                          <span>Hosting expiring in week</span>
+                        </button>
+
+                        <button
+                          type="button"
+                          className="sort-filter-option"
+                          onClick={() => handleSortChange("domain_month")}
+                        >
+                          <span
+                            className={
+                              "sort-filter-checkbox" +
+                              (sortFilter === "domain_month" ? " checked" : "")
+                            }
+                          />
+                          <span>Domain expiring in month</span>
+                        </button>
+
+                        <button
+                          type="button"
+                          className="sort-filter-option"
+                          onClick={() => handleSortChange("ssh_month")}
+                        >
+                          <span
+                            className={
+                              "sort-filter-checkbox" +
+                              (sortFilter === "ssh_month" ? " checked" : "")
+                            }
+                          />
+                          <span>SSH expiring in month</span>
+                        </button>
+
+                        <button
+                          type="button"
+                          className="sort-filter-option"
+                          onClick={() => handleSortChange("hosting_month")}
+                        >
+                          <span
+                            className={
+                              "sort-filter-checkbox" +
+                              (sortFilter === "hosting_month" ? " checked" : "")
+                            }
+                          />
+                          <span>Hosting expiring in month</span>
+                        </button>
+
+                        {/* Small line above Clear */}
+                        <div className="sort-filter-divider" />
+
+                        {/* Clear at the bottom */}
+                        <button
+                          type="button"
+                          className="sort-filter-option"
+                          onClick={() => handleSortChange("all")}
+                        >
+                          <span
+                            className={
+                              "sort-filter-checkbox" +
+                              (sortFilter === "all" ? " checked" : "")
+                            }
+                          />
+                          <span>Clear</span>
+                        </button>
+                      </div>
+                    )}
+                  </div>
                 </div>
               </div>
             )}
@@ -302,7 +595,7 @@ const DomainDetails = () => {
                                   <div className="text-xs">
                                     Expires:{" "}
                                     {renderExpiryContent(
-                                      domain.ssh_expiry_date
+                                      domain.ssh_expiry_date,
                                     )}
                                   </div>
                                 </>
@@ -319,7 +612,7 @@ const DomainDetails = () => {
                                   <div className="text-xs">
                                     Expires:{" "}
                                     {renderExpiryContent(
-                                      domain.hosting_expiry_date
+                                      domain.hosting_expiry_date,
                                     )}
                                   </div>
                                 </>
@@ -385,7 +678,7 @@ const DomainDetails = () => {
                         >
                           {page}
                         </button>
-                      )
+                      ),
                     )}
                     <button
                       className="pagination-btn"
@@ -403,6 +696,22 @@ const DomainDetails = () => {
           </div>
         </div>
       </main>
+
+      {/* Global popup component */}
+      <Popup
+        show={popupConfig.show}
+        type={popupConfig.type}
+        title={popupConfig.title}
+        message={popupConfig.message}
+        onClose={closePopup}
+        onConfirm={
+          popupConfig.onConfirm ? () => popupConfig.onConfirm() : closePopup
+        }
+        confirmText={popupConfig.confirmText}
+        cancelText={popupConfig.cancelText}
+        showCancel={popupConfig.showCancel}
+      />
+      <Footer />
     </div>
   );
 };
