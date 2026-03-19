@@ -1,121 +1,148 @@
-import React, { useEffect, useRef, useState } from "react";
-import { FaSearch, FaSignOutAlt } from "react-icons/fa";
+// Navbar.jsx
+import React, { useState, useRef, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import api from "../api/axios";
-import "../assets/css/index.css";
-import Admin from "../assets/images/Admin.avif";
+import avatar from "../assets/images/avatar.png";
 
-function Navbar() {
-  const [isProfileOpen, setIsProfileOpen] = useState(false);
+// ── helpers ──────────────────────────────────────────────────────────────────
+function getCookie(name) {
+  return document.cookie
+    .split("; ")
+    .find((r) => r.startsWith(name + "="))
+    ?.split("=")[1];
+}
+
+async function logoutUser() {
+  try {
+    await fetch("/api/admin/logout/", {   // relative — goes through Vite proxy
+      method: "POST",
+      credentials: "include",
+      headers: { "X-CSRFToken": getCookie("csrftoken") },
+    });
+  } catch (err) {
+    console.error("Logout failed:", err);
+  }
+}
+// ─────────────────────────────────────────────────────────────────────────────
+
+const Navbar = () => {
+  const [profileOpen, setProfileOpen] = useState(false);
+  const [hamOpen, setHamOpen]         = useState(false);
   const profileRef = useRef(null);
-  const navigate = useNavigate();
+  const navigate   = useNavigate();
 
-  // Detect mobile view
-  const isMobile = () => window.innerWidth <= 768;
-
+  /* close profile dropdown on outside click */
   useEffect(() => {
-    const handleClickOutside = (e) => {
-      if (profileRef.current && !profileRef.current.contains(e.target)) {
-        setIsProfileOpen(false);
-      }
+    const h = (e) => {
+      if (profileRef.current && !profileRef.current.contains(e.target))
+        setProfileOpen(false);
     };
-
-    const handleKeyDown = (e) => {
-      if (e.key === "Escape") {
-        setIsProfileOpen(false);
-      }
-    };
-
-    const handleResize = () => {
-      if (!isMobile()) setIsProfileOpen(false);
-    };
-
-    document.addEventListener("mousedown", handleClickOutside);
-    document.addEventListener("keydown", handleKeyDown);
-    window.addEventListener("resize", handleResize);
-
-    return () => {
-      document.removeEventListener("mousedown", handleClickOutside);
-      document.removeEventListener("keydown", handleKeyDown);
-      window.removeEventListener("resize", handleResize);
-    };
+    document.addEventListener("mousedown", h);
+    return () => document.removeEventListener("mousedown", h);
   }, []);
 
-  // ✅ UPDATED logout handler
-  const handleLogout = async () => {
-    try {
-      await api.post("/api/admin/logout/");
+  /* Esc closes dropdown */
+  useEffect(() => {
+    const h = (e) => { if (e.key === "Escape") setProfileOpen(false); };
+    document.addEventListener("keydown", h);
+    return () => document.removeEventListener("keydown", h);
+  }, []);
 
-      // 🔥 Important: hard redirect clears memory & state
-      window.location.replace("/");
-    } catch (error) {
-      console.error("❌ Logout failed", error);
-      window.location.replace("/");
-    }
+  /* sync hamburger state with Sidebar */
+  useEffect(() => {
+    const h = (e) => setHamOpen(e.detail.open);
+    window.addEventListener("sidebar:statechange", h);
+    return () => window.removeEventListener("sidebar:statechange", h);
+  }, []);
+
+  const toggleSidebar = () => {
+    window.dispatchEvent(new Event("sidebar:toggle"));
   };
 
+  // ── logout handler ──────────────────────────────────────────────────────────
+  const handleLogout = async () => {
+    setProfileOpen(false);
+    await logoutUser();   // blacklists refresh token + server deletes both cookies
+    navigate("/");        // back to Login — the only public route in App.jsx
+  };
+  // ───────────────────────────────────────────────────────────────────────────
+
   return (
-    <header className="app-header">
+    <header className="app-header" role="banner">
       <div className="app-header-inner">
-        {/* Left: Search */}
-        <div className="topbar-left">
-          <div className="topbar-search">
-            <FaSearch className="topbar-search-icon" />
-            <input
-              type="search"
-              className="topbar-search-input"
-              placeholder="Search..."
-            />
-          </div>
+
+        {/* ── Hamburger ── */}
+        <button
+          type="button"
+          className={`hamburger-btn${hamOpen ? " is-open" : ""}`}
+          aria-label={hamOpen ? "Close navigation" : "Open navigation"}
+          aria-controls="app-sidebar"
+          aria-expanded={hamOpen}
+          onClick={toggleSidebar}
+        >
+          <span className="hamburger-line" aria-hidden="true" />
+          <span className="hamburger-line" aria-hidden="true" />
+          <span className="hamburger-line" aria-hidden="true" />
+        </button>
+
+        {/* ── Search ── */}
+        <div className="topbar-search" role="search">
+          <span className="topbar-search-icon" aria-hidden="true">
+            <svg width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
+              <circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/>
+            </svg>
+          </span>
+          <input
+            type="search"
+            className="topbar-search-input"
+            placeholder="Search…"
+            aria-label="Site search"
+          />
         </div>
 
-        {/* Right */}
+        {/* ── Right side ── */}
         <div className="topbar-right">
-          <div className="topbar-divider" />
+          <div className="topbar-divider" aria-hidden="true" />
 
+          {/* Profile */}
           <div className="topbar-profile-wrapper" ref={profileRef}>
-            {/* Avatar Image */}
             <img
-              src={Admin}
-              alt="user"
+              src={avatar}
+              alt="User avatar"
               className="topbar-profile-avatar"
-              onClick={() => setIsProfileOpen((prev) => !prev)}
+              onClick={() => setProfileOpen((v) => !v)}
+              onKeyDown={(e) => e.key === "Enter" && setProfileOpen((v) => !v)}
+              role="button"
+              tabIndex={0}
             />
-
-            {/* Admin Button */}
-            <button
-              type="button"
-              className="topbar-profile"
-              onClick={() => setIsProfileOpen((prev) => !prev)}
-            >
-              <div className="topbar-profile-info">
-                <span className="topbar-profile-name">Admin</span>
-              </div>
-            </button>
+            <div className="topbar-profile-info">
+              <span className="topbar-profile-name">Admin</span>
+            </div>
 
             {/* Dropdown */}
             <div
-              className={
-                "profile-dropdown" +
-                (isProfileOpen ? " profile-dropdown--open" : "")
-              }
+              className={`profile-dropdown${profileOpen ? " profile-dropdown--open" : ""}`}
+              role="menu"
+              aria-label="User menu"
             >
-              <div className="profile-dropdown-header">Welcome!</div>
+              <div className="profile-dropdown-header">My Account</div>
 
+              {/* ── Logout button ── */}
               <button
                 type="button"
                 className="profile-dropdown-item"
-                onClick={handleLogout}
+                role="menuitem"
+                onClick={handleLogout}          // ← was: navigate("/logout")
               >
-                <FaSignOutAlt className="profile-dropdown-item-icon" />
                 <span className="profile-dropdown-item-label">Logout</span>
               </button>
+
             </div>
           </div>
         </div>
+
       </div>
     </header>
   );
-}
+};
 
 export default Navbar;

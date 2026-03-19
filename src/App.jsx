@@ -1,6 +1,8 @@
 import { Routes, Route } from "react-router-dom";
 import Login from "./pages/Login.jsx";
 import AdminDashboard from "./pages/Admin/AdminDashboard.jsx";
+import ForgotPassword from "./pages/Admin/Forgotpassword.jsx";
+import Layout from "./compomnents/Layout.jsx";
 
 /* DOMAIN TRACKER */
 import DomainForm from "./pages/DomainTracker/DomainForm.jsx";
@@ -19,90 +21,31 @@ function App() {
     <Routes>
       {/* PUBLIC */}
       <Route path="/" element={<Login />} />
+      <Route path="/forgot-password" element={<ForgotPassword />} />
 
-      {/* ADMIN DASHBOARD */}
+      {/* PROTECTED — all share Layout (Sidebar + Navbar + Footer) */}
       <Route
-        path="/admin-dashboard"
         element={
           <ProtectedRoute>
-            <AdminDashboard />
+            <Layout />
           </ProtectedRoute>
         }
-      />
+      >
+        {/* Dashboard */}
+        <Route path="/admin-dashboard" element={<AdminDashboard />} />
 
-      {/* DOMAIN TRACKER */}
-      <Route
-        path="/domain/new"
-        element={
-          <ProtectedRoute>
-            <DomainForm />
-          </ProtectedRoute>
-        }
-      />
+        {/* Domain Tracker */}
+        <Route path="/domain/new"               element={<DomainForm />} />
+        <Route path="/domain/all"               element={<DomainDetails />} />
+        <Route path="/domain/update/:id"        element={<EditDomainPage />} />
+        <Route path="/domain/history"           element={<DomainUpdateHistory />} />
+        <Route path="/domain/history/:domainId" element={<DomainUpdateHistory />} />
 
-      <Route
-        path="/domain/all"
-        element={
-          <ProtectedRoute>
-            <DomainDetails />
-          </ProtectedRoute>
-        }
-      />
-
-      <Route
-        path="/domain/update/:id"
-        element={
-          <ProtectedRoute>
-            <EditDomainPage />
-          </ProtectedRoute>
-        }
-      />
-
-      <Route
-        path="/domain/history"
-        element={
-          <ProtectedRoute>
-            <DomainUpdateHistory />
-          </ProtectedRoute>
-        }
-      />
-
-      <Route
-        path="/domain/history/:domainId"
-        element={
-          <ProtectedRoute>
-            <DomainUpdateHistory />
-          </ProtectedRoute>
-        }
-      />
-
-      {/* CLIENT */}
-      <Route
-        path="/client/new"
-        element={
-          <ProtectedRoute>
-            <ClientForm />
-          </ProtectedRoute>
-        }
-      />
-
-      <Route
-        path="/client/update/:id"
-        element={
-          <ProtectedRoute>
-            <ClientForm />
-          </ProtectedRoute>
-        }
-      />
-
-      <Route
-        path="/client/all"
-        element={
-          <ProtectedRoute>
-            <ClientDetails />
-          </ProtectedRoute>
-        }
-      />
+        {/* Client */}
+        <Route path="/client/new"               element={<ClientForm />} />
+        <Route path="/client/update/:id"        element={<ClientForm />} />
+        <Route path="/client/all"               element={<ClientDetails />} />
+      </Route>
     </Routes>
   );
 }

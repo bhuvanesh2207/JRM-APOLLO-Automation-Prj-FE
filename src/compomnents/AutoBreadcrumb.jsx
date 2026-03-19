@@ -1,8 +1,7 @@
-// src/components/AutoBreadcrumb.jsx
-import React from "react";
+// src/compomnents/AutoBreadcrumb.jsx
+import React, { useState, useEffect, useRef } from "react";
 import { useLocation, matchPath, Link } from "react-router-dom";
 
-// ---------- Breadcrumb Map ----------
 const breadcrumbMap = {
   "/domain/all": [
     { label: "Dashboard", path: "/admin-dashboard" },
@@ -44,27 +43,65 @@ const breadcrumbMap = {
   ],
 };
 
-// ---------- Breadcrumb Component ----------
+/* ── Breadcrumb renderer ── */
 const Breadcrumb = ({ items }) => {
-  const displayItems = items;
+  const navRef = useRef(null);
+  const [collapsed, setCollapsed] = useState(false);
+  const [expanded, setExpanded] = useState(false);
+
+  /* Collapse middle items when nav overflows on small screens */
+  useEffect(() => {
+    const check = () => {
+      if (navRef.current) {
+        setCollapsed(
+          navRef.current.scrollWidth > navRef.current.clientWidth + 4,
+        );
+      }
+    };
+    check();
+    window.addEventListener("resize", check);
+    return () => window.removeEventListener("resize", check);
+  }, [items]);
+
+  /* When collapsed, show: first + "…" + last  (or all if expanded) */
+  const visibleItems =
+    collapsed && !expanded && items.length > 2
+      ? [items[0], null, items[items.length - 1]] // null = ellipsis slot
+      : items;
 
   return (
-    <nav aria-label="breadcrumb" className="mb-6">
-      <ol className="flex flex-wrap list-none p-0 m-0 drop-shadow-sm filter">
-        {displayItems.map((item, index) => {
-          const isLast = index === displayItems.length - 1;
+    <nav aria-label="breadcrumb" className="bc-nav" ref={navRef}>
+      <ol className="bc-list">
+        {visibleItems.map((item, index) => {
+          /* Ellipsis slot */
+          if (item === null) {
+            return (
+              <li key="ellipsis" className="bc-item bc-ellipsis-item">
+                <button
+                  type="button"
+                  className="bc-ellipsis-btn"
+                  aria-label="Show full path"
+                  onClick={() => setExpanded(true)}
+                >
+                  …
+                </button>
+              </li>
+            );
+          }
+
+          const isLast = index === visibleItems.length - 1;
 
           return (
-            <li key={index} className="breadcrumb-arrow">
+            <li
+              key={index}
+              className={`bc-item${isLast ? " bc-item--last" : ""}`}
+            >
               {item.path && !isLast ? (
-                <Link
-                  to={item.path}
-                  className="text-white hover:text-gray-100 no-underline"
-                >
+                <Link to={item.path} className="bc-link">
                   {item.label}
                 </Link>
               ) : (
-                <span>{item.label}</span>
+                <span className="bc-current">{item.label}</span>
               )}
             </li>
           );
@@ -74,24 +111,21 @@ const Breadcrumb = ({ items }) => {
   );
 };
 
-// ---------- AutoBreadcrumb Component ----------
+/* ── AutoBreadcrumb ── */
 const AutoBreadcrumb = ({ dynamicLabelMap = {} }) => {
   const location = useLocation();
 
-  // Find the first matching route in the map
   const matchedEntry = Object.entries(breadcrumbMap).find(([path]) =>
-    matchPath({ path, end: true }, location.pathname)
+    matchPath({ path, end: true }, location.pathname),
   );
 
   if (!matchedEntry) return null;
 
   let [, items] = matchedEntry;
-
-  // Replace dynamic labels if provided
   items = items.map((item) =>
     dynamicLabelMap[item.label]
       ? { ...item, label: dynamicLabelMap[item.label] }
-      : item
+      : item,
   );
 
   return <Breadcrumb items={items} />;

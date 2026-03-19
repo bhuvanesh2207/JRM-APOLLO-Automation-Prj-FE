@@ -5,6 +5,7 @@ import { FaRegEye } from "react-icons/fa";
 import { RiEyeCloseLine } from "react-icons/ri";
 import LoginPage from "../assets/images/LoginPage.avif";
 import LoginFormBG from "../assets/images/LoginFormBG.jpg";
+import ForgotPassword from "../pages/Admin/Forgotpassword"; // ← new import
 
 function Login() {
   const [email, setEmail] = useState("");
@@ -12,6 +13,7 @@ function Login() {
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState("");
   const [errors, setErrors] = useState({});
+  const [showForgot, setShowForgot] = useState(false); // ← new state
   const navigate = useNavigate();
 
   // ---------- AUTO REDIRECT IF ALREADY LOGGED IN ----------
@@ -20,34 +22,28 @@ function Login() {
       try {
         const response = await api.get("/api/admin/check_auth/");
         if (response.status === 200) {
-          // Admin is already logged in, redirect
           navigate("/admin-dashboard");
         }
       } catch (err) {
-        // Not logged in or not admin, stay on login page
         console.log("User not authenticated or not admin");
       }
     };
-
     checkAuth();
   }, [navigate]);
 
   // ---------- VALIDATION ----------
   const validate = () => {
     const newErrors = {};
-
     if (!email.trim()) {
       newErrors.email = "Email is required";
     } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim())) {
       newErrors.email = "Enter a valid email address";
     }
-
     if (!password) {
       newErrors.password = "Password is required";
     } else if (password.length < 6) {
       newErrors.password = "Password must be at least 6 characters";
     }
-
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
   };
@@ -55,25 +51,16 @@ function Login() {
   // ---------- SUBMIT ----------
   const handleSubmit = async (e) => {
     e.preventDefault();
-
     if (!validate()) return;
-
     setError("");
-
     try {
       const response = await api.post("/api/admin/login/", {
         email: email.trim().toLowerCase(),
         password,
       });
-
       if (response.status === 200) {
         const { csrf: csrfToken } = response.data;
-
-        // Set CSRF token for future requests
         api.defaults.headers.post["X-CSRFToken"] = csrfToken;
-
-        // No need to store JWT in localStorage because it's HttpOnly cookie
-        // Just redirect to dashboard
         navigate("/admin-dashboard");
       }
     } catch (err) {
@@ -171,6 +158,26 @@ function Login() {
               )}
             </div>
 
+            {/* ── FORGOT PASSWORD LINK ──────────────────────── */}
+            <div style={{ textAlign: "right", marginTop: -8, marginBottom: 12 }}>
+              <button
+                type="button"
+                onClick={() => setShowForgot(true)}
+                style={{
+                  background: "none",
+                  border: "none",
+                  cursor: "pointer",
+                  color: "#4f46e5",
+                  fontSize: 13,
+                  fontWeight: 600,
+                  padding: 0,
+                  textDecoration: "underline",
+                }}
+              >
+                Forgot Password?
+              </button>
+            </div>
+
             {/* SERVER ERROR */}
             {error && <p className="error-message">{error}</p>}
 
@@ -180,6 +187,9 @@ function Login() {
           </form>
         </div>
       </div>
+
+      {/* ── FORGOT PASSWORD MODAL ─────────────────────────── */}
+      {showForgot && <ForgotPassword onClose={() => setShowForgot(false)} />}
     </div>
   );
 }

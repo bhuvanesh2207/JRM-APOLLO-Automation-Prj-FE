@@ -1,18 +1,14 @@
-import React from "react";
+import React, { useState, useEffect } from "react";
 
 function Footer() {
+  const [currentYear, setCurrentYear] = useState(new Date().getFullYear());
+
   return (
-    <div>
-      {" "}
-      <footer class="footer h-16 flex items-center px-6 bg-white shadow dark:bg-gray-800 mt-auto">
-        <div class="flex md:justify-between justify-center w-full gap-4">
-          <div>
-            <script>document.write(new Date().getFullYear())</script> © -{" "}
-            <a>2026 - JRM Infotech</a>
-          </div>
-        </div>
-      </footer>
-    </div>
+<footer className="mt-auto h-16 md:h-20 flex items-center justify-center text-sm text-black font-bold">
+  <div className="flex flex-col sm:flex-row items-center gap-2 sm:gap-4 text-center">
+    <span>{currentYear} © JRM Infotech</span> 
+  </div>
+</footer>
   );
 }
 

@@ -13,19 +13,18 @@ const ProtectedRoute = ({ children }) => {
         await axiosInstance.get("/api/admin/check_auth/");
         if (isMounted) setIsAuth(true);
       } catch {
+        // 401 + refresh failed → interceptor does window.location.href = "/"
+        // but we also set false here so <Navigate> fires immediately
         if (isMounted) setIsAuth(false);
       }
     };
 
     checkAuth();
-
-    return () => {
-      isMounted = false;
-    };
+    return () => { isMounted = false; };
   }, []);
 
   if (isAuth === null) return <div>Loading...</div>;
-  if (!isAuth) return <Navigate to="/" replace />;
+  if (!isAuth) return <Navigate to="/" replace />;   // ← this should fire
 
   return children;
 };

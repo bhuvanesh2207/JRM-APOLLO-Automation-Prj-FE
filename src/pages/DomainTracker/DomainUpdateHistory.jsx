@@ -51,7 +51,7 @@ const DomainHistory = () => {
   const [searchDate, setSearchDate] = useState("");
 
   // Pagination
-  const [entriesPerPage, setEntriesPerPage] = useState(10);
+  const [entriesPerPage, setEntriesPerPage] = useState(5);
   const [currentPage, setCurrentPage] = useState(1);
 
   // Fetch history
@@ -103,7 +103,7 @@ const DomainHistory = () => {
           .includes(searchDomain.toLowerCase())
       : true;
     const dateMatch = searchDate
-      ? item.updated_at?.slice(0, 10) === searchDate
+      ? item.updated_at?.slice(0, 5) === searchDate
       : true;
     return domainMatch && dateMatch;
   });
@@ -133,7 +133,7 @@ const DomainHistory = () => {
       <Navbar />
 
       <main className="app-main">
-        <div className="max-w-[1200px] mx-auto px-5 mt-6">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
           <AutoBreadcrumb />
           <div className="bg-white rounded-lg shadow-lg p-6">
             {/* Header */}
@@ -171,7 +171,7 @@ const DomainHistory = () => {
                   }}
                   style={{ marginRight: 8 }}
                 >
-                  {[10, 25, 50, 100].map((num) => (
+                  {[5, 10, 50, 100].map((num) => (
                     <option key={num} value={num}>
                       {num}
                     </option>

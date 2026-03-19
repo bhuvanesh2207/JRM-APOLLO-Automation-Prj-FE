@@ -1,37 +1,26 @@
+// DomainDetails.jsx
 import React, { useEffect, useState, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { FaEdit, FaTrashAlt, FaHistory, FaList } from "react-icons/fa";
-import Navbar from "../../compomnents/Navbar";
-import Sidebar from "../../compomnents/Sidebar";
-import Footer from "../../compomnents/Footer";
 
 import AutoBreadcrumb from "../../compomnents/AutoBreadcrumb";
 import Popup from "../../compomnents/Popup";
 import api from "../../api/axios";
-// If you put the CSS in its own file, e.g. "./DomainDetails.css", import it here:
-// import "./DomainDetails.css";
 
 const DomainDetails = () => {
   const navigate = useNavigate();
   const [domains, setDomains] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
-
-  // Pagination & Search
   const [search, setSearch] = useState("");
-  const [entriesPerPage, setEntriesPerPage] = useState(5);
+  const [entriesPerPage, setEntries] = useState(5);
   const [currentPage, setCurrentPage] = useState(1);
+  const [sortFilter, setSortFilter] = useState("all");
+  const [showSortDrop, setShowSortDrop] = useState(false);
+  const [showEntDrop, setShowEntDrop] = useState(false);
+  const sortRef = useRef(null);
+  const entRef = useRef(null);
 
-  // Sort (expiry filter)
-  const [sortFilter, setSortFilter] = useState("all"); // "all" = Clear
-  const [showSortDropdown, setShowSortDropdown] = useState(false);
-  const sortFilterRef = useRef(null);
-
-  // NEW: entries-per-page dropdown
-  const [showEntriesDropdown, setShowEntriesDropdown] = useState(false);
-  const entriesDropdownRef = useRef(null);
-
-  // Popup state
   const [popupConfig, setPopupConfig] = useState({
     show: false,
     type: "info",
@@ -42,8 +31,7 @@ const DomainDetails = () => {
     showCancel: false,
     onConfirm: null,
   });
-
-  const openPopup = (config) => {
+  const openPopup = (cfg) =>
     setPopupConfig({
       show: true,
       type: "info",
@@ -53,15 +41,11 @@ const DomainDetails = () => {
       cancelText: "Cancel",
       showCancel: false,
       onConfirm: null,
-      ...config,
+      ...cfg,
     });
-  };
+  const closePopup = () => setPopupConfig((p) => ({ ...p, show: false }));
 
-  const closePopup = () => {
-    setPopupConfig((prev) => ({ ...prev, show: false }));
-  };
-
-  /* ---------------- FETCH DOMAINS ---------------- */
+  /* ── fetch ── */
   const fetchDomains = async () => {
     setLoading(true);
     try {
@@ -69,45 +53,30 @@ const DomainDetails = () => {
       if (res.data.success) {
         setDomains(res.data.domains || []);
         setError("");
-      } else {
-        setError("Failed to fetch domains.");
-      }
-    } catch (err) {
+      } else setError("Failed to fetch domains.");
+    } catch {
       setError("Server error while fetching domains.");
     } finally {
       setLoading(false);
     }
   };
-
   useEffect(() => {
     fetchDomains();
   }, []);
 
-  // Close sort + entries dropdown when clicking outside
+  /* ── close dropdowns on outside click ── */
   useEffect(() => {
-    const handleClickOutside = (event) => {
-      if (
-        sortFilterRef.current &&
-        !sortFilterRef.current.contains(event.target)
-      ) {
-        setShowSortDropdown(false);
-      }
-
-      if (
-        entriesDropdownRef.current &&
-        !entriesDropdownRef.current.contains(event.target)
-      ) {
-        setShowEntriesDropdown(false);
-      }
+    const h = (e) => {
+      if (sortRef.current && !sortRef.current.contains(e.target))
+        setShowSortDrop(false);
+      if (entRef.current && !entRef.current.contains(e.target))
+        setShowEntDrop(false);
     };
-
-    document.addEventListener("mousedown", handleClickOutside);
-    return () => document.removeEventListener("mousedown", handleClickOutside);
+    document.addEventListener("mousedown", h);
+    return () => document.removeEventListener("mousedown", h);
   }, []);
 
-  /* ---------------- HANDLERS ---------------- */
-  const handleEditDomain = (id) => navigate(`/domain/update/${id}`);
-
+  /* ── delete handler ── */
   const handleDeleteDomain = (id) => {
     openPopup({
       type: "delete",
@@ -121,84 +90,52 @@ const DomainDetails = () => {
         try {
           await api.delete(`/api/domain/delete/${id}/`);
           await fetchDomains();
-
           openPopup({
             type: "success",
             title: "Deleted",
             message: "Domain deleted successfully.",
             confirmText: "OK",
-            showCancel: false,
           });
-        } catch (err) {
+        } catch {
           openPopup({
             type: "error",
             title: "Error",
             message: "Server error while deleting domain.",
             confirmText: "OK",
-            showCancel: false,
           });
         }
       },
     });
   };
 
-  const handleViewHistory = (id) => {
-    navigate(`/domain/history/${id}`);
-  };
-
-  const handleViewAllHistory = () => {
-    navigate("/domain/history/all");
-  };
-
-  const handleSortChange = (value) => {
-    setSortFilter(value);
-    setCurrentPage(1);
-    setShowSortDropdown(false);
-  };
-
-  /* ---------------- DATE RENDERING LOGIC ---------------- */
-  const renderExpiryContent = (dateStr) => {
-    if (!dateStr) return <span className="text-gray-500">N/A</span>;
-
+  /* ── date helpers ── */
+  const getDays = (d) => {
+    if (!d) return null;
     const today = new Date();
     today.setHours(0, 0, 0, 0);
+    const exp = new Date(d);
+    exp.setHours(0, 0, 0, 0);
+    return Math.ceil((exp - today) / 86400000);
+  };
 
-    const expiry = new Date(dateStr);
-    expiry.setHours(0, 0, 0, 0);
-
-    const diffTime = expiry - today;
-    const days = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-
-    const formattedDate = new Date(dateStr).toLocaleDateString("en-IN", {
+  const renderExpiry = (dateStr) => {
+    if (!dateStr) return <span className="text-gray">N/A</span>;
+    const days = getDays(dateStr);
+    const fmt = new Date(dateStr).toLocaleDateString("en-IN", {
       day: "2-digit",
       month: "short",
       year: "numeric",
     });
-
-    if (days < 0) {
+    if (days < 0)
       return (
-        <span style={{ color: "red", fontWeight: "bold" }}>
-          Expired {Math.abs(days)} days ago
-        </span>
+        <span className="expiry-expired">Expired {Math.abs(days)}d ago</span>
       );
-    }
-
-    if (days <= 7) {
-      return <span style={{ color: "red" }}>{formattedDate}</span>;
-    }
-
-    if (days <= 30) {
-      return <span style={{ color: "orangered" }}>{formattedDate}</span>;
-    }
-
-    return (
-      <span style={{ color: "black", fontWeight: "bold" }}>
-        {formattedDate}
-      </span>
-    );
+    if (days <= 7) return <span className="expiry-critical">{fmt}</span>;
+    if (days <= 30) return <span className="expiry-warning">{fmt}</span>;
+    return <span className="expiry-ok">{fmt}</span>;
   };
 
-  const formatSimpleDate = (d) =>
+  const fmtDate = (d) =>
     d
       ? new Date(d).toLocaleDateString("en-IN", {
           day: "2-digit",
@@ -207,512 +144,367 @@ const DomainDetails = () => {
         })
       : "N/A";
 
-  /* ---------------- SORT FILTER HELPERS ---------------- */
-  const getDaysFromToday = (dateStr) => {
-    if (!dateStr) return null;
-
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-
-    const target = new Date(dateStr);
-    target.setHours(0, 0, 0, 0);
-
-    const diffTime = target - today;
-    return Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-  };
-
-  const passesSortFilter = (domain, filter) => {
-    const dDomain = getDaysFromToday(domain.expiry_date);
-    const dSSH = getDaysFromToday(domain.ssh_expiry_date);
-    const dHosting = getDaysFromToday(domain.hosting_expiry_date);
-
-    switch (filter) {
+  /* ── sort filter ── */
+  const passesSortFilter = (domain, f) => {
+    const dD = getDays(domain.expiry_date);
+    const dS = getDays(domain.ssh_expiry_date);
+    const dH = getDays(domain.hosting_expiry_date);
+    switch (f) {
       case "expired":
-        return dDomain !== null && dDomain < 0;
-
+        return dD !== null && dD < 0;
       case "domain_week":
-        return dDomain !== null && dDomain >= 0 && dDomain <= 7;
-
+        return dD !== null && dD >= 0 && dD <= 7;
       case "ssh_week":
-        return dSSH !== null && dSSH >= 0 && dSSH <= 7;
-
+        return dS !== null && dS >= 0 && dS <= 7;
       case "hosting_week":
-        return dHosting !== null && dHosting >= 0 && dHosting <= 7;
-
+        return dH !== null && dH >= 0 && dH <= 7;
       case "domain_month":
-        return dDomain !== null && dDomain > 7 && dDomain <= 30;
-
+        return dD !== null && dD > 7 && dD <= 30;
       case "ssh_month":
-        return dSSH !== null && dSSH > 7 && dSSH <= 30;
-
+        return dS !== null && dS > 7 && dS <= 30;
       case "hosting_month":
-        return dHosting !== null && dHosting > 7 && dHosting <= 30;
-
-      case "all":
+        return dH !== null && dH > 7 && dH <= 30;
       default:
         return true;
     }
   };
 
-  /* ---------------- FILTERING & PAGINATION ---------------- */
-  const filteredDomains = domains.filter((domain) => {
+  /* ── pagination ── */
+  const filtered = domains.filter((d) => {
     if (search) {
-      const term = search.toLowerCase();
-      const matchesSearch =
-        domain.domain_name?.toLowerCase().includes(term) ||
-        domain.registrar?.toLowerCase().includes(term) ||
-        domain.hosting_name?.toLowerCase().includes(term);
-
-      if (!matchesSearch) return false;
+      const t = search.toLowerCase();
+      if (
+        !d.domain_name?.toLowerCase().includes(t) &&
+        !d.registrar?.toLowerCase().includes(t) &&
+        !d.hosting_name?.toLowerCase().includes(t)
+      )
+        return false;
     }
-
-    return passesSortFilter(domain, sortFilter);
+    return passesSortFilter(d, sortFilter);
   });
 
-  const totalEntries = filteredDomains.length;
-  const totalPages =
-    totalEntries === 0 ? 1 : Math.ceil(totalEntries / entriesPerPage);
-
-  const paginatedDomains = filteredDomains.slice(
+  const totalEntries = filtered.length;
+  const totalPages = Math.max(1, Math.ceil(totalEntries / entriesPerPage));
+  const paginated = filtered.slice(
     (currentPage - 1) * entriesPerPage,
     currentPage * entriesPerPage,
   );
-
   const startEntry =
     totalEntries === 0 ? 0 : (currentPage - 1) * entriesPerPage + 1;
   const endEntry = Math.min(currentPage * entriesPerPage, totalEntries);
 
-  /* ---------------- RENDER ---------------- */
-  return (
-    <div
-      className="min-h-screen"
-      style={{
-        marginLeft: "var(--sidebar-current-width)",
-        paddingTop: "var(--tw-topbar-height)",
-      }}
-    >
-      <Sidebar />
-      <Navbar />
+  const SORT_OPTIONS = [
+    { value: "expired", label: "Expired" },
+    { value: "domain_week", label: "Domain expiring in week" },
+    { value: "ssh_week", label: "SSH expiring in week" },
+    { value: "hosting_week", label: "Hosting expiring in week" },
+    { value: "domain_month", label: "Domain expiring in month" },
+    { value: "ssh_month", label: "SSH expiring in month" },
+    { value: "hosting_month", label: "Hosting expiring in month" },
+  ];
 
-      <main className="app-main">
-        <div className="max-w-[1200px] mx-auto px-5 mt-6">
-          <AutoBreadcrumb />
-          <div className="bg-white rounded-lg shadow-lg p-6">
-            {/* Header */}
+  /* ── render ── */
+  return (
+    <main className="app-main">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        <AutoBreadcrumb />
+        <div className="bg-white rounded-lg shadow-lg p-6">
+          {/* Header */}
+          <div className="table-header">
+            <h2>
+              <FaList className="domain-icon" /> Managed Domains
+            </h2>
+            <div className="flex flex-wrap gap-2">
+              <button
+                type="button"
+                className="btn btn-secondary"
+                onClick={() => navigate("/domain/new")}
+              >
+                Add Domain
+              </button>
+              <button
+                type="button"
+                className="btn btn-secondary"
+                onClick={() => navigate("/domain/history/all")}
+              >
+                <FaHistory style={{ marginRight: 4 }} /> History
+              </button>
+            </div>
+          </div>
+
+          {/* Controls */}
+          {!loading && !error && (
             <div
-              className="table-header"
               style={{
                 display: "flex",
                 justifyContent: "space-between",
                 alignItems: "center",
-                marginBottom: 16,
+                marginBottom: 12,
+                flexWrap: "wrap",
+                gap: 8,
               }}
             >
-              <div>
-                <h2>
-                  <FaList className="domain-icon" /> Managed Domains
-                </h2>
+              <div className="table-controls-left">
+                <div
+                  className="sort-filter-wrapper sort-filter-wrapper-left"
+                  ref={entRef}
+                >
+                  <button
+                    type="button"
+                    className="btn btn-sort"
+                    onClick={() => setShowEntDrop((v) => !v)}
+                  >
+                    <span>{entriesPerPage} / page</span>
+                    <span className="sort-filter-caret" />
+                  </button>
+                  {showEntDrop && (
+                    <div className="sort-filter-dropdown">
+                      {[5, 10, 25, 50].map((n) => (
+                        <button
+                          key={n}
+                          type="button"
+                          className="sort-filter-option"
+                          onClick={() => {
+                            setEntries(n);
+                            setCurrentPage(1);
+                            setShowEntDrop(false);
+                          }}
+                        >
+                          <span
+                            className={`sort-filter-checkbox${entriesPerPage === n ? " checked" : ""}`}
+                          />
+                          <span>{n} entries per page</span>
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </div>
               </div>
 
-              <div style={{ display: "flex", gap: 8 }}>
-                <button
-                  type="button"
-                  className="btn btn-secondary"
-                  onClick={() => navigate("/domain/new")}
-                >
-                  Add Domain
-                </button>
-                <button
-                  type="button"
-                  className="btn btn-secondary"
-                  onClick={handleViewAllHistory}
-                >
-                  <FaHistory style={{ marginRight: 4 }} />
-                  History
-                </button>
+              <div className="table-controls-right">
+                <div className="table-search">
+                  <input
+                    type="text"
+                    value={search}
+                    onChange={(e) => {
+                      setSearch(e.target.value);
+                      setCurrentPage(1);
+                    }}
+                    placeholder="Search domains"
+                    aria-label="Search domains"
+                  />
+                </div>
+                <div className="sort-filter-wrapper" ref={sortRef}>
+                  <button
+                    type="button"
+                    className="btn btn-sort"
+                    onClick={() => setShowSortDrop((v) => !v)}
+                  >
+                    <span>Sort</span>
+                    <span className="sort-filter-caret" />
+                  </button>
+                  {showSortDrop && (
+                    <div className="sort-filter-dropdown">
+                      {SORT_OPTIONS.map((opt) => (
+                        <button
+                          key={opt.value}
+                          type="button"
+                          className="sort-filter-option"
+                          onClick={() => {
+                            setSortFilter(opt.value);
+                            setCurrentPage(1);
+                            setShowSortDrop(false);
+                          }}
+                        >
+                          <span
+                            className={`sort-filter-checkbox${sortFilter === opt.value ? " checked" : ""}`}
+                          />
+                          <span>{opt.label}</span>
+                        </button>
+                      ))}
+                      <div className="sort-filter-divider" />
+                      <button
+                        type="button"
+                        className="sort-filter-option"
+                        onClick={() => {
+                          setSortFilter("all");
+                          setCurrentPage(1);
+                          setShowSortDrop(false);
+                        }}
+                      >
+                        <span
+                          className={`sort-filter-checkbox${sortFilter === "all" ? " checked" : ""}`}
+                        />
+                        <span>Clear</span>
+                      </button>
+                    </div>
+                  )}
+                </div>
               </div>
             </div>
+          )}
 
-            {/* Controls */}
-            {!loading && !error && (
-              <div
-                style={{
-                  display: "flex",
-                  justifyContent: "space-between",
-                  alignItems: "center",
-                  marginBottom: 12,
-                }}
-              >
-                {/* LEFT: entries-per-page dropdown */}
-                <div className="table-controls-left">
-                  <div
-                    className="sort-filter-wrapper sort-filter-wrapper-left"
-                    ref={entriesDropdownRef}
-                  >
-                    <button
-                      type="button"
-                      className="btn btn-sort"
-                      onClick={() => setShowEntriesDropdown((prev) => !prev)}
-                    >
-                      <span>{entriesPerPage} / page</span>
-                      <span className="sort-filter-caret" />
-                    </button>
-
-                    {showEntriesDropdown && (
-                      <div className="sort-filter-dropdown">
-                        {[5, 10, 25, 50].map((num) => (
-                          <button
-                            key={num}
-                            type="button"
-                            className="sort-filter-option"
-                            onClick={() => {
-                              setEntriesPerPage(num);
-                              setCurrentPage(1);
-                              setShowEntriesDropdown(false);
-                            }}
-                          >
-                            <span
-                              className={
-                                "sort-filter-checkbox" +
-                                (entriesPerPage === num ? " checked" : "")
+          {/* Table */}
+          {loading ? (
+            <div className="no-data">Loading domains...</div>
+          ) : error ? (
+            <div style={{ color: "var(--error)" }}>{error}</div>
+          ) : totalEntries === 0 ? (
+            <div className="no-data">No domains found.</div>
+          ) : (
+            <>
+              <div className="table-responsive">
+                <table id="domainsTable">
+                  <thead>
+                    <tr>
+                      <th>Domain</th>
+                      <th>Registrar</th>
+                      <th>Domain Expiry</th>
+                      <th>Status</th>
+                      <th>SSH</th>
+                      <th>Hosting</th>
+                      <th>Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {paginated.map((domain) => (
+                      <tr key={domain.id}>
+                        <td data-label="Domain">
+                          <div>
+                            <strong>{domain.domain_name}</strong>
+                            <div className="text-sm text-gray">
+                              Purchased: {fmtDate(domain.purchase_date)}
+                            </div>
+                          </div>
+                        </td>
+                        <td data-label="Registrar">
+                          {domain.registrar || "N/A"}
+                        </td>
+                        <td data-label="Expiry">
+                          {renderExpiry(domain.expiry_date)}
+                        </td>
+                        <td
+                          data-label="Status"
+                          className={
+                            domain.active_status
+                              ? "status-active"
+                              : "status-inactive"
+                          }
+                        >
+                          {domain.active_status ? "Active" : "Inactive"}
+                        </td>
+                        <td data-label="SSH">
+                          {domain.ssh_name ? (
+                            <div>
+                              <div>{domain.ssh_name}</div>
+                              <div className="text-xs">
+                                Expires: {renderExpiry(domain.ssh_expiry_date)}
+                              </div>
+                            </div>
+                          ) : (
+                            "N/A"
+                          )}
+                        </td>
+                        <td data-label="Hosting">
+                          {domain.hosting_name ? (
+                            <div>
+                              <div>{domain.hosting_name}</div>
+                              <div className="text-xs">
+                                Expires:{" "}
+                                {renderExpiry(domain.hosting_expiry_date)}
+                              </div>
+                            </div>
+                          ) : (
+                            "N/A"
+                          )}
+                        </td>
+                        <td data-label="Actions">
+                          <div className="actions">
+                            <button
+                              className="action-btn edit-btn"
+                              onClick={() =>
+                                navigate(`/domain/update/${domain.id}`)
                               }
-                            />
-                            <span>{num} entries per page</span>
-                          </button>
-                        ))}
-                      </div>
-                    )}
-                  </div>
+                              title="Edit"
+                            >
+                              <FaEdit />
+                            </button>
+                            <button
+                              className="action-btn delete-btn"
+                              onClick={() => handleDeleteDomain(domain.id)}
+                              title="Delete"
+                            >
+                              <FaTrashAlt />
+                            </button>
+                            <button
+                              className="action-btn history-btn"
+                              onClick={() =>
+                                navigate(`/domain/history/${domain.id}`)
+                              }
+                              title="History"
+                            >
+                              <FaHistory />
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+
+              {/* Footer */}
+              <div className="table-footer">
+                <div className="entries-info">
+                  {`Showing ${startEntry} to ${endEntry} of ${totalEntries} entries`}
                 </div>
-
-                {/* RIGHT: search + sort dropdown */}
-                <div className="table-controls-right">
-                  <div className="table-search">
-                    <input
-                      type="text"
-                      value={search}
-                      onChange={(e) => {
-                        setSearch(e.target.value);
-                        setCurrentPage(1);
-                      }}
-                      placeholder="Search domains"
-                    />
-                  </div>
-
-                  {/* Sort button with dropdown */}
-                  <div className="sort-filter-wrapper" ref={sortFilterRef}>
-                    <button
-                      type="button"
-                      className="btn btn-sort"
-                      onClick={() => setShowSortDropdown((prev) => !prev)}
-                    >
-                      <span>Sort</span>
-                      <span className="sort-filter-caret" />
-                    </button>
-
-                    {showSortDropdown && (
-                      <div className="sort-filter-dropdown">
-                        <button
-                          type="button"
-                          className="sort-filter-option"
-                          onClick={() => handleSortChange("expired")}
-                        >
-                          <span
-                            className={
-                              "sort-filter-checkbox" +
-                              (sortFilter === "expired" ? " checked" : "")
-                            }
-                          />
-                          <span>Expired</span>
-                        </button>
-
-                        <button
-                          type="button"
-                          className="sort-filter-option"
-                          onClick={() => handleSortChange("domain_week")}
-                        >
-                          <span
-                            className={
-                              "sort-filter-checkbox" +
-                              (sortFilter === "domain_week" ? " checked" : "")
-                            }
-                          />
-                          <span>Domain expiring in week</span>
-                        </button>
-
-                        <button
-                          type="button"
-                          className="sort-filter-option"
-                          onClick={() => handleSortChange("ssh_week")}
-                        >
-                          <span
-                            className={
-                              "sort-filter-checkbox" +
-                              (sortFilter === "ssh_week" ? " checked" : "")
-                            }
-                          />
-                          <span>SSH expiring in week</span>
-                        </button>
-
-                        <button
-                          type="button"
-                          className="sort-filter-option"
-                          onClick={() => handleSortChange("hosting_week")}
-                        >
-                          <span
-                            className={
-                              "sort-filter-checkbox" +
-                              (sortFilter === "hosting_week" ? " checked" : "")
-                            }
-                          />
-                          <span>Hosting expiring in week</span>
-                        </button>
-
-                        <button
-                          type="button"
-                          className="sort-filter-option"
-                          onClick={() => handleSortChange("domain_month")}
-                        >
-                          <span
-                            className={
-                              "sort-filter-checkbox" +
-                              (sortFilter === "domain_month" ? " checked" : "")
-                            }
-                          />
-                          <span>Domain expiring in month</span>
-                        </button>
-
-                        <button
-                          type="button"
-                          className="sort-filter-option"
-                          onClick={() => handleSortChange("ssh_month")}
-                        >
-                          <span
-                            className={
-                              "sort-filter-checkbox" +
-                              (sortFilter === "ssh_month" ? " checked" : "")
-                            }
-                          />
-                          <span>SSH expiring in month</span>
-                        </button>
-
-                        <button
-                          type="button"
-                          className="sort-filter-option"
-                          onClick={() => handleSortChange("hosting_month")}
-                        >
-                          <span
-                            className={
-                              "sort-filter-checkbox" +
-                              (sortFilter === "hosting_month" ? " checked" : "")
-                            }
-                          />
-                          <span>Hosting expiring in month</span>
-                        </button>
-
-                        {/* Small line above Clear */}
-                        <div className="sort-filter-divider" />
-
-                        {/* Clear at the bottom */}
-                        <button
-                          type="button"
-                          className="sort-filter-option"
-                          onClick={() => handleSortChange("all")}
-                        >
-                          <span
-                            className={
-                              "sort-filter-checkbox" +
-                              (sortFilter === "all" ? " checked" : "")
-                            }
-                          />
-                          <span>Clear</span>
-                        </button>
-                      </div>
-                    )}
-                  </div>
+                <div className="pagination">
+                  <button
+                    className="pagination-btn"
+                    disabled={currentPage === 1}
+                    onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
+                  >
+                    Previous
+                  </button>
+                  {Array.from({ length: totalPages }, (_, i) => i + 1).map(
+                    (pg) => (
+                      <button
+                        key={pg}
+                        className={`pagination-btn${currentPage === pg ? " active" : ""}`}
+                        onClick={() => setCurrentPage(pg)}
+                      >
+                        {pg}
+                      </button>
+                    ),
+                  )}
+                  <button
+                    className="pagination-btn"
+                    disabled={currentPage === totalPages}
+                    onClick={() =>
+                      setCurrentPage((p) => Math.min(totalPages, p + 1))
+                    }
+                  >
+                    Next
+                  </button>
                 </div>
               </div>
-            )}
-
-            {/* Table */}
-            {loading ? (
-              <div>Loading domains...</div>
-            ) : error ? (
-              <div className="text-red-600">{error}</div>
-            ) : totalEntries === 0 ? (
-              <div>No domains found.</div>
-            ) : (
-              <>
-                <div className="table-responsive">
-                  <table id="domainsTable">
-                    <thead>
-                      <tr>
-                        <th>Domain</th>
-                        <th>Registrar</th>
-                        <th>Domain Expiry</th>
-                        <th>Status</th>
-                        <th>SSH</th>
-                        <th>Hosting</th>
-                        <th>Actions</th>
-                      </tr>
-                    </thead>
-
-                    <tbody>
-                      {paginatedDomains.map((domain) => {
-                        return (
-                          <tr key={domain.id}>
-                            {/* DOMAIN */}
-                            <td>
-                              <strong>{domain.domain_name}</strong>
-                              <div className="text-sm text-gray-500">
-                                Purchased:{" "}
-                                {formatSimpleDate(domain.purchase_date)}
-                              </div>
-                            </td>
-
-                            {/* REGISTRAR */}
-                            <td>{domain.registrar || "N/A"}</td>
-
-                            {/* DOMAIN EXPIRY */}
-                            <td>{renderExpiryContent(domain.expiry_date)}</td>
-
-                            {/* STATUS */}
-                            <td
-                              className={
-                                domain.active_status
-                                  ? "status-active"
-                                  : "status-inactive"
-                              }
-                            >
-                              {domain.active_status ? "Active" : "Inactive"}
-                            </td>
-
-                            {/* SSH */}
-                            <td>
-                              {domain.ssh_name ? (
-                                <>
-                                  <div>{domain.ssh_name}</div>
-                                  <div className="text-xs">
-                                    Expires:{" "}
-                                    {renderExpiryContent(
-                                      domain.ssh_expiry_date,
-                                    )}
-                                  </div>
-                                </>
-                              ) : (
-                                "N/A"
-                              )}
-                            </td>
-
-                            {/* HOSTING */}
-                            <td>
-                              {domain.hosting_name ? (
-                                <>
-                                  <div>{domain.hosting_name}</div>
-                                  <div className="text-xs">
-                                    Expires:{" "}
-                                    {renderExpiryContent(
-                                      domain.hosting_expiry_date,
-                                    )}
-                                  </div>
-                                </>
-                              ) : (
-                                "N/A"
-                              )}
-                            </td>
-
-                            {/* ACTIONS */}
-                            <td>
-                              <div className="actions">
-                                <button
-                                  className="action-btn edit-btn"
-                                  onClick={() => handleEditDomain(domain.id)}
-                                  title="Edit domain"
-                                >
-                                  <FaEdit />
-                                </button>
-                                <button
-                                  className="action-btn delete-btn"
-                                  onClick={() => handleDeleteDomain(domain.id)}
-                                  title="Delete domain"
-                                >
-                                  <FaTrashAlt />
-                                </button>
-                                <button
-                                  className="action-btn history-btn"
-                                  onClick={() => handleViewHistory(domain.id)}
-                                  title="View domain history"
-                                >
-                                  <FaHistory />
-                                </button>
-                              </div>
-                            </td>
-                          </tr>
-                        );
-                      })}
-                    </tbody>
-                  </table>
-                </div>
-
-                {/* Footer */}
-                <div className="table-footer">
-                  <div className="entries-info">
-                    {`Showing ${startEntry} to ${endEntry} of ${totalEntries} entries`}
-                  </div>
-                  <div className="pagination">
-                    <button
-                      className="pagination-btn"
-                      onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
-                      disabled={currentPage === 1}
-                    >
-                      Previous
-                    </button>
-                    {Array.from({ length: totalPages }, (_, i) => i + 1).map(
-                      (page) => (
-                        <button
-                          key={page}
-                          className={`pagination-btn${
-                            currentPage === page ? " active" : ""
-                          }`}
-                          onClick={() => setCurrentPage(page)}
-                        >
-                          {page}
-                        </button>
-                      ),
-                    )}
-                    <button
-                      className="pagination-btn"
-                      onClick={() =>
-                        setCurrentPage((p) => Math.min(totalPages, p + 1))
-                      }
-                      disabled={currentPage === totalPages}
-                    >
-                      Next
-                    </button>
-                  </div>
-                </div>
-              </>
-            )}
-          </div>
+            </>
+          )}
         </div>
-      </main>
+      </div>
 
-      {/* Global popup component */}
       <Popup
         show={popupConfig.show}
         type={popupConfig.type}
         title={popupConfig.title}
         message={popupConfig.message}
         onClose={closePopup}
-        onConfirm={
-          popupConfig.onConfirm ? () => popupConfig.onConfirm() : closePopup
-        }
+        onConfirm={popupConfig.onConfirm ? popupConfig.onConfirm : closePopup}
         confirmText={popupConfig.confirmText}
         cancelText={popupConfig.cancelText}
         showCancel={popupConfig.showCancel}
       />
-      <Footer />
-    </div>
+    </main>
   );
 };
 
