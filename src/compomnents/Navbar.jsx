@@ -1,9 +1,7 @@
-// Navbar.jsx
 import React, { useState, useRef, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import avatar from "../assets/images/avatar.png";
 
-// ── helpers ──────────────────────────────────────────────────────────────────
 function getCookie(name) {
   return document.cookie
     .split("; ")
@@ -13,7 +11,7 @@ function getCookie(name) {
 
 async function logoutUser() {
   try {
-    await fetch("/api/admin/logout/", {   // relative — goes through Vite proxy
+    await fetch("/api/admin/logout/", {
       method: "POST",
       credentials: "include",
       headers: { "X-CSRFToken": getCookie("csrftoken") },
@@ -22,15 +20,52 @@ async function logoutUser() {
     console.error("Logout failed:", err);
   }
 }
-// ─────────────────────────────────────────────────────────────────────────────
+
+const SEARCH_ITEMS = [
+  {
+    label: "Domains",
+    description: "View all domains",
+    path: "/domain/all",
+    type: "Domain",
+  },
+  {
+    label: "Clients",
+    description: "View all clients",
+    path: "/client/all",
+    type: "Client",
+  },
+  {
+    label: "Employees",
+    description: "View all employees",
+    path: "/employees/all",
+    type: "Employee",
+  },
+  {
+    label: "Calendar",
+    description: "View calendar",
+    path: "/attendance/calendar",
+    type: "Calendar",
+  },
+];
 
 const Navbar = () => {
   const [profileOpen, setProfileOpen] = useState(false);
-  const [hamOpen, setHamOpen]         = useState(false);
-  const profileRef = useRef(null);
-  const navigate   = useNavigate();
+  const [hamOpen, setHamOpen] = useState(false);
+  const [query, setQuery] = useState("");
+  const [searchOpen, setSearchOpen] = useState(false);
 
-  /* close profile dropdown on outside click */
+  const profileRef = useRef(null);
+  const searchRef = useRef(null);
+  const navigate = useNavigate();
+
+  const filteredItems = query.trim()
+    ? SEARCH_ITEMS.filter(
+        (item) =>
+          item.label.toLowerCase().includes(query.toLowerCase()) ||
+          item.type.toLowerCase().includes(query.toLowerCase()),
+      )
+    : [];
+
   useEffect(() => {
     const h = (e) => {
       if (profileRef.current && !profileRef.current.contains(e.target))
@@ -40,36 +75,57 @@ const Navbar = () => {
     return () => document.removeEventListener("mousedown", h);
   }, []);
 
-  /* Esc closes dropdown */
   useEffect(() => {
-    const h = (e) => { if (e.key === "Escape") setProfileOpen(false); };
+    const h = (e) => {
+      if (searchRef.current && !searchRef.current.contains(e.target)) {
+        setSearchOpen(false);
+        setQuery("");
+      }
+    };
+    document.addEventListener("mousedown", h);
+    return () => document.removeEventListener("mousedown", h);
+  }, []);
+
+  useEffect(() => {
+    const h = (e) => {
+      if (e.key === "Escape") {
+        setProfileOpen(false);
+        setSearchOpen(false);
+        setQuery("");
+      }
+    };
     document.addEventListener("keydown", h);
     return () => document.removeEventListener("keydown", h);
   }, []);
 
-  /* sync hamburger state with Sidebar */
   useEffect(() => {
     const h = (e) => setHamOpen(e.detail.open);
     window.addEventListener("sidebar:statechange", h);
     return () => window.removeEventListener("sidebar:statechange", h);
   }, []);
 
-  const toggleSidebar = () => {
-    window.dispatchEvent(new Event("sidebar:toggle"));
-  };
+  const toggleSidebar = () => window.dispatchEvent(new Event("sidebar:toggle"));
 
-  // ── logout handler ──────────────────────────────────────────────────────────
   const handleLogout = async () => {
     setProfileOpen(false);
-    await logoutUser();   // blacklists refresh token + server deletes both cookies
-    navigate("/");        // back to Login — the only public route in App.jsx
+    await logoutUser();
+    navigate("/");
   };
-  // ───────────────────────────────────────────────────────────────────────────
+
+  const handleResultClick = (path) => {
+    setSearchOpen(false);
+    setQuery("");
+    navigate(path);
+  };
+
+  const handleInputChange = (e) => {
+    setQuery(e.target.value);
+    setSearchOpen(true);
+  };
 
   return (
     <header className="app-header" role="banner">
       <div className="app-header-inner">
-
         {/* ── Hamburger ── */}
         <button
           type="button"
@@ -85,18 +141,52 @@ const Navbar = () => {
         </button>
 
         {/* ── Search ── */}
-        <div className="topbar-search" role="search">
+        <div className="topbar-search" role="search" ref={searchRef}>
           <span className="topbar-search-icon" aria-hidden="true">
-            <svg width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
-              <circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/>
+            <svg
+              width="14"
+              height="14"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2"
+              viewBox="0 0 24 24"
+            >
+              <circle cx="11" cy="11" r="8" />
+              <path d="m21 21-4.35-4.35" />
             </svg>
           </span>
           <input
             type="search"
             className="topbar-search-input"
-            placeholder="Search…"
-            aria-label="Site search"
+            placeholder="Search domains, clients…"
+            aria-label="Search"
+            value={query}
+            onChange={handleInputChange}
+            autoComplete="off"
           />
+
+          {/* ── Dropdown ── */}
+          {searchOpen && query.trim() && (
+            <div className="search-dropdown" role="listbox">
+              {filteredItems.length === 0 ? (
+                <div className="search-dropdown-empty">
+                  No results for "{query}"
+                </div>
+              ) : (
+                filteredItems.map((item) => (
+                  <button
+                    key={item.path}
+                    type="button"
+                    className="search-dropdown-item"
+                    onClick={() => handleResultClick(item.path)}
+                  >
+                    <span className="search-item-badge">{item.type}</span>
+                    <span className="search-item-desc">{item.description}</span>
+                  </button>
+                ))
+              )}
+            </div>
+          )}
         </div>
 
         {/* ── Right side ── */}
@@ -118,28 +208,23 @@ const Navbar = () => {
               <span className="topbar-profile-name">Admin</span>
             </div>
 
-            {/* Dropdown */}
             <div
               className={`profile-dropdown${profileOpen ? " profile-dropdown--open" : ""}`}
               role="menu"
               aria-label="User menu"
             >
               <div className="profile-dropdown-header">My Account</div>
-
-              {/* ── Logout button ── */}
               <button
                 type="button"
                 className="profile-dropdown-item"
                 role="menuitem"
-                onClick={handleLogout}          // ← was: navigate("/logout")
+                onClick={handleLogout}
               >
                 <span className="profile-dropdown-item-label">Logout</span>
               </button>
-
             </div>
           </div>
         </div>
-
       </div>
     </header>
   );

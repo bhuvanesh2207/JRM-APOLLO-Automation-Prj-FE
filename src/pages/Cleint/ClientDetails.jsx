@@ -1,7 +1,6 @@
 import React, { useEffect, useState, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { FaEdit, FaTrashAlt, FaList } from "react-icons/fa";
-
 import AutoBreadcrumb from "../../compomnents/AutoBreadcrumb";
 import Popup from "../../compomnents/Popup";
 import api from "../../api/axios";
@@ -18,12 +17,27 @@ const ClientDetails = () => {
   const entriesDropdownRef = useRef(null);
 
   const [popupConfig, setPopupConfig] = useState({
-    show: false, type: "info", title: "", message: "",
-    confirmText: "OK", cancelText: "Cancel", showCancel: false, onConfirm: null,
+    show: false,
+    type: "info",
+    title: "",
+    message: "",
+    confirmText: "OK",
+    cancelText: "Cancel",
+    showCancel: false,
+    onConfirm: null,
   });
   const openPopup = (cfg) =>
-    setPopupConfig({ show: true, type: "info", title: "", message: "",
-      confirmText: "OK", cancelText: "Cancel", showCancel: false, onConfirm: null, ...cfg });
+    setPopupConfig({
+      show: true,
+      type: "info",
+      title: "",
+      message: "",
+      confirmText: "OK",
+      cancelText: "Cancel",
+      showCancel: false,
+      onConfirm: null,
+      ...cfg,
+    });
   const closePopup = () => setPopupConfig((p) => ({ ...p, show: false }));
 
   /* ── Fetch ── */
@@ -31,17 +45,27 @@ const ClientDetails = () => {
     setLoading(true);
     try {
       const res = await api.get("/api/client/list/");
-      if (res.data.success) { setClients(res.data.clients || []); setError(""); }
-      else setError("Failed to fetch clients.");
-    } catch { setError("Server error while fetching clients."); }
-    finally { setLoading(false); }
+      if (res.data.success) {
+        setClients(res.data.clients || []);
+        setError("");
+      } else setError("Failed to fetch clients.");
+    } catch {
+      setError("Server error while fetching clients.");
+    } finally {
+      setLoading(false);
+    }
   };
-  useEffect(() => { fetchClients(); }, []);
+  useEffect(() => {
+    fetchClients();
+  }, []);
 
   /* ── Close dropdown on outside click ── */
   useEffect(() => {
     const h = (e) => {
-      if (entriesDropdownRef.current && !entriesDropdownRef.current.contains(e.target))
+      if (
+        entriesDropdownRef.current &&
+        !entriesDropdownRef.current.contains(e.target)
+      )
         setShowEntriesDropdown(false);
     };
     document.addEventListener("mousedown", h);
@@ -51,24 +75,39 @@ const ClientDetails = () => {
   /* ── Delete ── */
   const handleDeleteClient = (clientId) => {
     openPopup({
-      type: "delete", title: "Delete Client",
+      type: "delete",
+      title: "Delete Client",
       message: "Are you sure you want to delete this client?",
-      showCancel: true, confirmText: "Delete", cancelText: "Cancel",
+      showCancel: true,
+      confirmText: "Delete",
+      cancelText: "Cancel",
       onConfirm: async () => {
         closePopup();
         try {
           const res = await api.delete(`/api/client/delete/${clientId}/`);
           if (res.data.success) {
             await fetchClients();
-            openPopup({ type: "success", title: "Deleted",
-              message: res.data.message || "Client deleted successfully.", confirmText: "OK" });
+            openPopup({
+              type: "success",
+              title: "Deleted",
+              message: res.data.message || "Client deleted successfully.",
+              confirmText: "OK",
+            });
           } else {
-            openPopup({ type: "error", title: "Error",
-              message: res.data.message || "Failed to delete client.", confirmText: "OK" });
+            openPopup({
+              type: "error",
+              title: "Error",
+              message: res.data.message || "Failed to delete client.",
+              confirmText: "OK",
+            });
           }
         } catch (err) {
-          openPopup({ type: "error", title: "Error",
-            message: err.response?.data?.error || "Server error.", confirmText: "OK" });
+          openPopup({
+            type: "error",
+            title: "Error",
+            message: err.response?.data?.error || "Server error.",
+            confirmText: "OK",
+          });
         }
       },
     });
@@ -76,15 +115,17 @@ const ClientDetails = () => {
 
   /* ── Pagination ── */
   const filteredClients = clients.filter((c) =>
-    c.name.toLowerCase().includes(search.toLowerCase())
+    c.name.toLowerCase().includes(search.toLowerCase()),
   );
   const totalEntries = filteredClients.length;
   const totalPages = Math.max(1, Math.ceil(totalEntries / entriesPerPage));
   const safePage = Math.min(currentPage, totalPages);
   const paginatedClients = filteredClients.slice(
-    (safePage - 1) * entriesPerPage, safePage * entriesPerPage
+    (safePage - 1) * entriesPerPage,
+    safePage * entriesPerPage,
   );
-  const startEntry = totalEntries === 0 ? 0 : (safePage - 1) * entriesPerPage + 1;
+  const startEntry =
+    totalEntries === 0 ? 0 : (safePage - 1) * entriesPerPage + 1;
   const endEntry = Math.min(safePage * entriesPerPage, totalEntries);
 
   return (
@@ -92,9 +133,7 @@ const ClientDetails = () => {
       <main className="app-main">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
           <AutoBreadcrumb />
-
           <div className="bg-white rounded-lg shadow-lg p-6">
-
             {/* ── Header
                 .table-header uses justify-content: space-between in the global CSS,
                 so h2 sits on the left and the button is pushed to the right end.
@@ -114,23 +153,45 @@ const ClientDetails = () => {
 
             {/* ── Controls ── */}
             {!loading && !error && (
-              <div style={{ display:"flex", justifyContent:"space-between",
-                alignItems:"center", marginBottom:12, flexWrap:"wrap", gap:8 }}>
-
+              <div
+                style={{
+                  display: "flex",
+                  justifyContent: "space-between",
+                  alignItems: "center",
+                  marginBottom: 12,
+                  flexWrap: "wrap",
+                  gap: 8,
+                }}
+              >
                 <div className="table-controls-left">
-                  <div className="sort-filter-wrapper sort-filter-wrapper-left"
-                    ref={entriesDropdownRef}>
-                    <button type="button" className="btn btn-sort"
-                      onClick={() => setShowEntriesDropdown((v) => !v)}>
+                  <div
+                    className="sort-filter-wrapper sort-filter-wrapper-left"
+                    ref={entriesDropdownRef}
+                  >
+                    <button
+                      type="button"
+                      className="btn btn-sort"
+                      onClick={() => setShowEntriesDropdown((v) => !v)}
+                    >
                       <span>{entriesPerPage} / page</span>
                       <span className="sort-filter-caret" />
                     </button>
                     {showEntriesDropdown && (
                       <div className="sort-filter-dropdown">
                         {[5, 10, 25, 50].map((n) => (
-                          <button key={n} type="button" className="sort-filter-option"
-                            onClick={() => { setEntriesPerPage(n); setCurrentPage(1); setShowEntriesDropdown(false); }}>
-                            <span className={`sort-filter-checkbox${entriesPerPage === n ? " checked" : ""}`} />
+                          <button
+                            key={n}
+                            type="button"
+                            className="sort-filter-option"
+                            onClick={() => {
+                              setEntriesPerPage(n);
+                              setCurrentPage(1);
+                              setShowEntriesDropdown(false);
+                            }}
+                          >
+                            <span
+                              className={`sort-filter-checkbox${entriesPerPage === n ? " checked" : ""}`}
+                            />
                             <span>{n} entries per page</span>
                           </button>
                         ))}
@@ -144,7 +205,10 @@ const ClientDetails = () => {
                     <input
                       type="text"
                       value={search}
-                      onChange={(e) => { setSearch(e.target.value); setCurrentPage(1); }}
+                      onChange={(e) => {
+                        setSearch(e.target.value);
+                        setCurrentPage(1);
+                      }}
                       placeholder="Search clients"
                       aria-label="Search clients"
                     />
@@ -186,14 +250,22 @@ const ClientDetails = () => {
                           <td data-label="Address">{c.address}</td>
                           <td data-label="Actions">
                             <div className="actions">
-                              <button type="button" className="action-btn edit-btn"
+                              <button
+                                type="button"
+                                className="action-btn edit-btn"
                                 title="Edit client"
-                                onClick={() => navigate(`/client/update/${c.id}`)}>
+                                onClick={() =>
+                                  navigate(`/client/update/${c.id}`)
+                                }
+                              >
                                 <FaEdit />
                               </button>
-                              <button type="button" className="action-btn delete-btn"
+                              <button
+                                type="button"
+                                className="action-btn delete-btn"
                                 title="Delete client"
-                                onClick={() => handleDeleteClient(c.id)}>
+                                onClick={() => handleDeleteClient(c.id)}
+                              >
                                 <FaTrashAlt />
                               </button>
                             </div>
@@ -210,21 +282,31 @@ const ClientDetails = () => {
                     {`Showing ${startEntry} to ${endEntry} of ${totalEntries} entries`}
                   </div>
                   <div className="pagination">
-                    <button className="pagination-btn"
+                    <button
+                      className="pagination-btn"
                       disabled={safePage === 1}
-                      onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}>
+                      onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
+                    >
                       Previous
                     </button>
-                    {Array.from({ length: totalPages }, (_, i) => i + 1).map((pg) => (
-                      <button key={pg}
-                        className={`pagination-btn${safePage === pg ? " active" : ""}`}
-                        onClick={() => setCurrentPage(pg)}>
-                        {pg}
-                      </button>
-                    ))}
-                    <button className="pagination-btn"
+                    {Array.from({ length: totalPages }, (_, i) => i + 1).map(
+                      (pg) => (
+                        <button
+                          key={pg}
+                          className={`pagination-btn${safePage === pg ? " active" : ""}`}
+                          onClick={() => setCurrentPage(pg)}
+                        >
+                          {pg}
+                        </button>
+                      ),
+                    )}
+                    <button
+                      className="pagination-btn"
                       disabled={safePage === totalPages}
-                      onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}>
+                      onClick={() =>
+                        setCurrentPage((p) => Math.min(totalPages, p + 1))
+                      }
+                    >
                       Next
                     </button>
                   </div>

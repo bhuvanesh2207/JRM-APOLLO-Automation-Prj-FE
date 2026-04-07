@@ -1,13 +1,12 @@
 import axios from "axios";
 
 const axiosInstance = axios.create({
-  withCredentials: true, // sends HttpOnly cookies on every request
+  baseURL: "/", 
+  withCredentials: true,
 });
-
 let isRefreshing = false;
 let refreshPromise = null;
 
-// ─── Request: attach CSRF token from cookie ───────────────────
 axiosInstance.interceptors.request.use((config) => {
   const csrfToken = document.cookie
     .split("; ")
@@ -17,22 +16,22 @@ axiosInstance.interceptors.request.use((config) => {
   if (csrfToken) {
     config.headers["X-CSRFToken"] = csrfToken;
   }
+
   return config;
 });
 
-// ─── Response: auto-refresh on 401 ───────────────────────────
 axiosInstance.interceptors.response.use(
   (response) => response,
   async (error) => {
     const originalRequest = error.config;
 
-    // Never retry these endpoints — avoids infinite loops
     const isAuthEndpoint =
-      originalRequest.url?.includes("/api/admin/refresh/") ||
-      originalRequest.url?.includes("/api/admin/login/") ||
-      originalRequest.url?.includes("/api/admin/forgot-password/");
-
-    if (error.response?.status === 401 && !originalRequest._retry && !isAuthEndpoint) {
+      originalRequest.url?.includes("/api/admin/login/") || originalRequest.url?.includes("/api/admin/refresh/");
+    if (
+      error.response?.status === 401 &&
+      !originalRequest._retry &&
+      !isAuthEndpoint
+    ) {
       originalRequest._retry = true;
 
       if (!isRefreshing) {
@@ -47,13 +46,12 @@ axiosInstance.interceptors.response.use(
 
       try {
         await refreshPromise;
-        return axiosInstance(originalRequest); // retry original request
-      } catch {
-        // Refresh token is expired — kick back to login
+        return axiosInstance(originalRequest);
+      } catch (err) {
         if (window.location.pathname !== "/") {
           window.location.href = "/";
         }
-        return Promise.reject(error);
+        return Promise.reject(err);
       }
     }
 

@@ -1,4 +1,3 @@
-// Sidebar.jsx
 import React, { useEffect, useState } from "react";
 import {
   MdLayers,
@@ -7,6 +6,7 @@ import {
   MdPerson,
   MdChevronLeft,
   MdChevronRight,
+  MdEventAvailable,
 } from "react-icons/md";
 import "../assets/css/index.css";
 
@@ -23,6 +23,22 @@ const MENU_ITEMS = [
         label: "DOMAIN TRACKER",
         href: "/domain/all",
       },
+      {
+        label: "EMPLOYEE",
+        children: [
+          { label: "EMPLOYEES", href: "/employees/all" },
+          { label: "SHIFTS",    href: "/shifts/all" },
+        ],
+      },
+      {
+        label: "ATTENDANCE",
+        icon: MdEventAvailable,
+        children: [
+          { label: "CALENDAR",    href: "/attendance/calendar"     },
+          { label: "PERMISSIONS", href: "/attendance/permissions"  },
+          { label: "OVERTIME",    href: "/attendance/overtime"     },
+        ],
+      },
     ],
   },
   {
@@ -31,7 +47,7 @@ const MENU_ITEMS = [
   },
 ];
 
-// Build initial open/closed state for all items that have children
+// Build initial open/closed state
 const buildInitialOpenMenus = (items, parentKey = "") => {
   const state = {};
   items.forEach((item) => {
@@ -45,49 +61,59 @@ const buildInitialOpenMenus = (items, parentKey = "") => {
 };
 
 function Sidebar() {
-  const [isPinned, setIsPinned]       = useState(false);
-  const [isHovering, setIsHovering]   = useState(false);
-  const [isMobileOpen, setIsMobileOpen] = useState(false);
-
-  const [openMenus, setOpenMenus] = useState(() =>
-    buildInitialOpenMenus(MENU_ITEMS),
-  );
+  const [isPinned,      setIsPinned]      = useState(false);
+  const [isHovering,    setIsHovering]    = useState(false);
+  const [isMobileOpen,  setIsMobileOpen]  = useState(false);
+  const [openMenus,     setOpenMenus]     = useState(() => buildInitialOpenMenus(MENU_ITEMS));
 
   const isExpanded = isPinned || isHovering;
 
-  // ── Helper: update mobile-open state AND notify Navbar ──────────────
   const setMobileOpen = (next) => {
     setIsMobileOpen(next);
-    // Broadcast the real state so Navbar's hamburger icon stays in sync
     window.dispatchEvent(
       new CustomEvent("sidebar:statechange", { detail: { open: next } })
     );
   };
 
-  // ── Persist pin preference ───────────────────────────────────────────
+  // Auto-open active route parents
   useEffect(() => {
     if (typeof window === "undefined") return;
-    const stored = window.localStorage.getItem("sidebarPinned");
+    const currentPath = window.location.pathname;
+    const findAndOpen = (items, parentKey = "") => {
+      for (const item of items) {
+        const key = parentKey ? `${parentKey}/${item.label}` : item.label;
+        if (item.href === currentPath) return true;
+        if (item.children) {
+          if (findAndOpen(item.children, key)) {
+            setOpenMenus((prev) => ({ ...prev, [key]: true }));
+            return true;
+          }
+        }
+      }
+      return false;
+    };
+    findAndOpen(MENU_ITEMS);
+  }, []);
+
+  // Persist pin state
+  useEffect(() => {
+    const stored = localStorage.getItem("sidebarPinned");
     if (stored === "true") setIsPinned(true);
   }, []);
 
   useEffect(() => {
-    if (typeof window === "undefined") return;
-    window.localStorage.setItem("sidebarPinned", isPinned ? "true" : "false");
+    localStorage.setItem("sidebarPinned", isPinned ? "true" : "false");
   }, [isPinned]);
 
-  // ── Mark active link ─────────────────────────────────────────────────
+  // Active link highlight
   useEffect(() => {
-    if (typeof window === "undefined") return;
     const currentPath = window.location.pathname;
     document.querySelectorAll(".sidebar-menu a.menu-link").forEach((el) => {
-      if (el.getAttribute("href") === currentPath) {
-        el.classList.add("active");
-      }
+      el.classList.toggle("active", el.getAttribute("href") === currentPath);
     });
   }, []);
 
-  // ── Close all sub-menus when sidebar collapses ───────────────────────
+  // Collapse all menus when sidebar collapses
   useEffect(() => {
     if (!isExpanded) {
       setOpenMenus((prev) => {
@@ -98,66 +124,59 @@ function Sidebar() {
     }
   }, [isExpanded]);
 
-  // ── Keep CSS variable in sync with expanded state ────────────────────
+  // Sync width CSS variable
   useEffect(() => {
-    const width = isExpanded ? "240px" : "70px";
-    document.documentElement.style.setProperty("--sidebar-current-width", width);
+    document.documentElement.style.setProperty(
+      "--sidebar-current-width",
+      isExpanded ? "240px" : "70px"
+    );
   }, [isExpanded]);
 
-  // ── Mobile drawer: toggle on hamburger click ─────────────────────────
+  // Mobile toggle listener
   useEffect(() => {
-    const handleToggle = () => {
-      setMobileOpen(!isMobileOpen);
-    };
+    const handleToggle = () => setMobileOpen(!isMobileOpen);
     window.addEventListener("sidebar:toggle", handleToggle);
     return () => window.removeEventListener("sidebar:toggle", handleToggle);
-  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isMobileOpen]);
 
-  // ── ESC key closes mobile drawer ─────────────────────────────────────
+  // ESC closes mobile
   useEffect(() => {
     if (!isMobileOpen) return;
-    const handleEsc = (e) => {
-      if (e.key === "Escape") setMobileOpen(false);
-    };
+    const handleEsc = (e) => { if (e.key === "Escape") setMobileOpen(false); };
     document.addEventListener("keydown", handleEsc);
     return () => document.removeEventListener("keydown", handleEsc);
-  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isMobileOpen]);
 
-  // ── Prevent body scroll when drawer is open on mobile ───────────────
+  // Prevent body scroll when mobile open
   useEffect(() => {
     document.body.style.overflow = isMobileOpen ? "hidden" : "";
     return () => { document.body.style.overflow = ""; };
   }, [isMobileOpen]);
 
-  const handleMouseEnter = () => { if (!isPinned) setIsHovering(true); };
+  const handleMouseEnter = () => { if (!isPinned) setIsHovering(true);  };
   const handleMouseLeave = () => { if (!isPinned) setIsHovering(false); };
   const handlePinToggle  = () => setIsPinned((prev) => !prev);
+  const toggleMenu       = (key) => setOpenMenus((prev) => ({ ...prev, [key]: !prev[key] }));
 
-  const toggleMenu = (key) => {
-    setOpenMenus((prev) => ({ ...prev, [key]: !prev[key] }));
-  };
-
-  const renderMenuItems = (items, parentKey = "") =>
+  const renderMenuItems = (items, parentKey = "", depth = 0) =>
     items.map((item) => {
       const hasChildren = Array.isArray(item.children) && item.children.length > 0;
       const key         = parentKey ? `${parentKey}/${item.label}` : item.label;
       const isOpen      = !!openMenus[key];
-      const isTopLevel  = !parentKey;
+      const isTopLevel  = depth === 0;
       const Icon        = item.icon;
 
       return (
-        <li key={key} className={"menu-item" + (isOpen ? " menu-item--open" : "")}>
+        <li
+          key={key}
+          className={"menu-item" + (isOpen ? " menu-item--open" : "")}
+          style={depth > 1 ? { paddingLeft: `${(depth - 1) * 10}px` } : undefined}
+        >
           <a
             href={hasChildren ? undefined : item.href}
             className="menu-link"
             onClick={(e) => {
-              if (hasChildren) {
-                e.preventDefault();
-                toggleMenu(key);
-              }
-              // Close mobile drawer on navigation
+              if (hasChildren) { e.preventDefault(); toggleMenu(key); }
               if (!hasChildren) setMobileOpen(false);
             }}
           >
@@ -168,7 +187,7 @@ function Sidebar() {
 
           {hasChildren && (
             <ul className={"sub-menu " + (isExpanded && isOpen ? "sub-menu--open" : "")}>
-              {renderMenuItems(item.children, key)}
+              {renderMenuItems(item.children, key, depth + 1)}
             </ul>
           )}
         </li>
@@ -177,62 +196,43 @@ function Sidebar() {
 
   return (
     <>
-      {/* ── Mobile overlay ── */}
+      {/* Mobile overlay */}
       {isMobileOpen && (
         <div
-          className="fixed inset-0 z-[39] bg-black/50 backdrop-blur-sm transition-opacity duration-300 lg:hidden"
+          className="fixed inset-0 z-[39] bg-black/50 backdrop-blur-sm lg:hidden"
           onClick={() => setMobileOpen(false)}
-          aria-hidden="true"
         />
       )}
 
-      {/* ── Sidebar ── */}
+      {/* Sidebar */}
       <aside
-        id="app-sidebar"
-        role="navigation"
-        aria-label="Main navigation"
-        aria-expanded={isMobileOpen.toString()}
         className={[
           "app-menu app-menu--mobile",
-          isExpanded ? "app-menu--expanded" : "app-menu--collapsed",
-          isPinned    ? "app-menu--pinned"   : "",
-          isMobileOpen ? "app-menu--mobile-open" : "",
+          isExpanded    ? "app-menu--expanded"    : "app-menu--collapsed",
+          isPinned      ? "app-menu--pinned"       : "",
+          isMobileOpen  ? "app-menu--mobile-open"  : "",
         ].join(" ")}
         onMouseEnter={handleMouseEnter}
         onMouseLeave={handleMouseLeave}
       >
-        {/* ── Logo bar ── */}
+        {/* Logo */}
         <div className="logo-box">
           <a href="/admin-dashboard" className="logo">
-            <span className="logo-icon-circle">
-              <MdPerson className="logo-icon-person" />
-            </span>
-            <span className="logo-text">
-              Admin <br />
-              Dashboard
-            </span>
+            <span className="logo-icon-circle"><MdPerson /></span>
+            <span className="logo-text">Admin <br /> Dashboard</span>
           </a>
-
-          {/* Pin / unpin button — only shown when expanded on desktop */}
           {isExpanded && (
-            <button
-              type="button"
-              onClick={handlePinToggle}
-              className={"sidebar-pin-btn" + (isPinned ? " sidebar-pin-btn--active" : "")}
-              aria-label={isPinned ? "Unpin sidebar" : "Pin sidebar"}
-            >
-              {isPinned ? (
-                <MdChevronLeft className="sidebar-pin-icon" />
-              ) : (
-                <MdChevronRight className="sidebar-pin-icon" />
-              )}
+            <button onClick={handlePinToggle} className="sidebar-pin-btn">
+              {isPinned ? <MdChevronLeft /> : <MdChevronRight />}
             </button>
           )}
         </div>
 
-        {/* ── Scrollable menu area ── */}
+        {/* Menu */}
         <div className="scrollbar">
-          <ul className="menu sidebar-menu">{renderMenuItems(MENU_ITEMS)}</ul>
+          <ul className="menu sidebar-menu">
+            {renderMenuItems(MENU_ITEMS)}
+          </ul>
         </div>
       </aside>
     </>

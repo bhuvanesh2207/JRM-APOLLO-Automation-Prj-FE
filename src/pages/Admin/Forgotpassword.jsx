@@ -68,7 +68,7 @@ function OTPInput({ value, onChange, length = 6 }) {
 
 function Stepper({ step }) {
   const steps = [STEP.EMAIL, STEP.OTP, STEP.RESET];
-  const labels = ["Email", "Verify OTP", "New Password"];
+  const labels = ["Email", "Verify OTP", "New "];
   const idx = steps.indexOf(step);
   return (
     <div className="fp-stepper">

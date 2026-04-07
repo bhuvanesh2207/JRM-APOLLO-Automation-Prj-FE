@@ -3,6 +3,7 @@ import React, { useState, useEffect, useRef } from "react";
 import { useLocation, matchPath, Link } from "react-router-dom";
 
 const breadcrumbMap = {
+  // ── Domain Tracker ──
   "/domain/all": [
     { label: "Dashboard", path: "/admin-dashboard" },
     { label: "Domains" },
@@ -27,6 +28,8 @@ const breadcrumbMap = {
     { label: "Domains", path: "/domain/all" },
     { label: "Domain History" },
   ],
+
+  // ── Client ──
   "/client/all": [
     { label: "Dashboard", path: "/admin-dashboard" },
     { label: "Clients" },
@@ -41,21 +44,108 @@ const breadcrumbMap = {
     { label: "Clients", path: "/client/all" },
     { label: "Edit Client" },
   ],
+
+  // ── Employees ──
+  "/employees/all": [
+    { label: "Dashboard", path: "/admin-dashboard" },
+    { label: "Employees" },
+  ],
+  "/employee/new": [
+    { label: "Dashboard", path: "/admin-dashboard" },
+    { label: "Employees", path: "/employees/all" },
+    { label: "Add Employee" },
+  ],
+  "/employees/edit/:id": [
+    { label: "Dashboard", path: "/admin-dashboard" },
+    { label: "Employees", path: "/employees/all" },
+    { label: "Edit Employee" },
+  ],
+  "/employees/view/:id": [
+    { label: "Dashboard", path: "/admin-dashboard" },
+    { label: "Employees", path: "/employees/all" },
+    { label: "Employee Details" },
+  ],
+
+  // ── Shifts ──
+  "/shifts/all": [
+    { label: "Dashboard", path: "/admin-dashboard" },
+    { label: "Employees", path: "/employees/all" },
+    { label: "Shifts" },
+  ],
+  "/shifts/new": [
+    { label: "Dashboard", path: "/admin-dashboard" },
+    { label: "Employees", path: "/employees/all" },
+    { label: "Shifts", path: "/shifts/all" },
+    { label: "Add Shift" },
+  ],
+  "/shifts/assign": [
+    { label: "Dashboard", path: "/admin-dashboard" },
+    { label: "Employees", path: "/employees/all" },
+    { label: "Shifts", path: "/shifts/all" },
+    { label: "Assign Shift" },
+  ],
+  "/shifts/edit/:id": [
+    { label: "Dashboard", path: "/admin-dashboard" },
+    { label: "Employees", path: "/employees/all" },
+    { label: "Shifts", path: "/shifts/all" },
+    { label: "Edit Shift" },
+  ],
+
+  // ── Calendar ──
+  "/attendance/calendar": [
+    { label: "Dashboard", path: "/admin-dashboard" },
+    { label: "Calendar" },
+  ],
+  "/attendance/holiday/add": [
+    { label: "Dashboard", path: "/admin-dashboard" },
+    { label: "Calendar", path: "/attendance/calendar" },
+    { label: "Add Holiday" },
+  ],
+
+  // ── Permissions ──
+  "/attendance/permissions": [
+    { label: "Dashboard", path: "/admin-dashboard" },
+    { label: "Permissions" },
+  ],
+  "/attendance/permissions/new": [
+    { label: "Dashboard", path: "/admin-dashboard" },
+    { label: "Permissions", path: "/attendance/permissions" },
+    { label: "Add Permission" },
+  ],
+  "/attendance/permissions/edit/:id": [
+    { label: "Dashboard", path: "/admin-dashboard" },
+    { label: "Permissions", path: "/attendance/permissions" },
+    { label: "Edit Permission" },
+  ],
+
+  // ── Overtime ← NEW ──
+  "/attendance/overtime": [
+    { label: "Dashboard", path: "/admin-dashboard" },
+    { label: "Overtime Approval" },
+  ],
+
+  // ── Email Config ──
+  "/email-config/new": [
+    { label: "Dashboard", path: "/admin-dashboard" },
+    { label: "Email Config" },
+  ],
+  "/email-config/update/:id": [
+    { label: "Dashboard", path: "/admin-dashboard" },
+    { label: "Email Config" },
+    { label: "Edit Config" },
+  ],
 };
 
 /* ── Breadcrumb renderer ── */
 const Breadcrumb = ({ items }) => {
   const navRef = useRef(null);
   const [collapsed, setCollapsed] = useState(false);
-  const [expanded, setExpanded] = useState(false);
+  const [expanded,  setExpanded]  = useState(false);
 
-  /* Collapse middle items when nav overflows on small screens */
   useEffect(() => {
     const check = () => {
       if (navRef.current) {
-        setCollapsed(
-          navRef.current.scrollWidth > navRef.current.clientWidth + 4,
-        );
+        setCollapsed(navRef.current.scrollWidth > navRef.current.clientWidth + 4);
       }
     };
     check();
@@ -63,17 +153,15 @@ const Breadcrumb = ({ items }) => {
     return () => window.removeEventListener("resize", check);
   }, [items]);
 
-  /* When collapsed, show: first + "…" + last  (or all if expanded) */
   const visibleItems =
     collapsed && !expanded && items.length > 2
-      ? [items[0], null, items[items.length - 1]] // null = ellipsis slot
+      ? [items[0], null, items[items.length - 1]]
       : items;
 
   return (
     <nav aria-label="breadcrumb" className="bc-nav" ref={navRef}>
       <ol className="bc-list">
         {visibleItems.map((item, index) => {
-          /* Ellipsis slot */
           if (item === null) {
             return (
               <li key="ellipsis" className="bc-item bc-ellipsis-item">
@@ -90,16 +178,10 @@ const Breadcrumb = ({ items }) => {
           }
 
           const isLast = index === visibleItems.length - 1;
-
           return (
-            <li
-              key={index}
-              className={`bc-item${isLast ? " bc-item--last" : ""}`}
-            >
+            <li key={index} className={`bc-item${isLast ? " bc-item--last" : ""}`}>
               {item.path && !isLast ? (
-                <Link to={item.path} className="bc-link">
-                  {item.label}
-                </Link>
+                <Link to={item.path} className="bc-link">{item.label}</Link>
               ) : (
                 <span className="bc-current">{item.label}</span>
               )}
@@ -116,16 +198,14 @@ const AutoBreadcrumb = ({ dynamicLabelMap = {} }) => {
   const location = useLocation();
 
   const matchedEntry = Object.entries(breadcrumbMap).find(([path]) =>
-    matchPath({ path, end: true }, location.pathname),
+    matchPath({ path, end: true }, location.pathname)
   );
 
   if (!matchedEntry) return null;
 
   let [, items] = matchedEntry;
   items = items.map((item) =>
-    dynamicLabelMap[item.label]
-      ? { ...item, label: dynamicLabelMap[item.label] }
-      : item,
+    dynamicLabelMap[item.label] ? { ...item, label: dynamicLabelMap[item.label] } : item
   );
 
   return <Breadcrumb items={items} />;

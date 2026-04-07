@@ -9,6 +9,8 @@ import AutoBreadcrumb from "../../compomnents/AutoBreadcrumb";
 import Popup from "../../compomnents/Popup";
 import api from "../../api/axios";
 
+const TIMEZONE = import.meta.env.VITE_TIMEZONE;
+
 const DomainHistory = () => {
   const { domainId } = useParams();
 
@@ -246,8 +248,9 @@ const DomainHistory = () => {
                       {paginatedHistory.map((record) => {
                         const updatedDisplay = record.updated_at
                           ? new Date(record.updated_at).toLocaleDateString(
-                              "en-US",
+                              "en-IN",
                               {
+                                timeZone: TIMEZONE,
                                 year: "numeric",
                                 month: "short",
                                 day: "numeric",

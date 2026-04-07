@@ -7,6 +7,8 @@ import AutoBreadcrumb from "../../compomnents/AutoBreadcrumb";
 import Popup from "../../compomnents/Popup";
 import api from "../../api/axios";
 
+const TIMEZONE = import.meta.env.VITE_TIMEZONE;
+
 const DomainDetails = () => {
   const navigate = useNavigate();
   const [domains, setDomains] = useState([]);
@@ -122,6 +124,7 @@ const DomainDetails = () => {
     if (!dateStr) return <span className="text-gray">N/A</span>;
     const days = getDays(dateStr);
     const fmt = new Date(dateStr).toLocaleDateString("en-IN", {
+      timeZone: TIMEZONE,
       day: "2-digit",
       month: "short",
       year: "numeric",
@@ -138,6 +141,7 @@ const DomainDetails = () => {
   const fmtDate = (d) =>
     d
       ? new Date(d).toLocaleDateString("en-IN", {
+          timeZone: TIMEZONE,
           day: "2-digit",
           month: "short",
           year: "numeric",

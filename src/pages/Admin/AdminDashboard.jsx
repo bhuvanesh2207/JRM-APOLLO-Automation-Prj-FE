@@ -6,7 +6,7 @@ import BannerImage from "../../assets/images/Automation.jpg";
 // JRM card images
 import JrmImg1 from "../../assets/images/DomainTraker.png";
 import JrmImg2 from "../../assets/images/Clients.png";
-import JrmImg3 from "../../assets/images/DomainTraker.avif";
+import JrmImg3 from "../../assets/images/Employee.png";
 
 // Apollo card images
 import ApolloImg1 from "../../assets/images/DomainTraker.avif";
@@ -17,7 +17,7 @@ const CARD_DATA = {
   JRM: [
     { id: "j1", title: "Domain Tracker", image: JrmImg1, path: "/domain/all" },
     { id: "j2", title: "Clients", image: JrmImg2, path: "/client/all" },
-    { id: "j3", title: "JRM Card 3", image: JrmImg3, path: "/jrm/card-3" },
+    { id: "j3", title: "Employees", image: JrmImg3, path: "/employees/all" },
   ],
   Apollo: [
     {
