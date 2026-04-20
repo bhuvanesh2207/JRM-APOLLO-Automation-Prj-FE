@@ -1,6 +1,7 @@
 import React, { useState, useRef, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import avatar from "../assets/images/avatar.png";
+import { useAuth } from "../context/AuthContext";
 
 function getCookie(name) {
   return document.cookie
@@ -106,10 +107,17 @@ const Navbar = () => {
 
   const toggleSidebar = () => window.dispatchEvent(new Event("sidebar:toggle"));
 
+  const { logout, user, role } = useAuth();
+
+  const displayName =
+    user?.full_name ||
+    user?.name ||
+    [user?.first_name, user?.last_name].filter(Boolean).join(" ") ||
+    (role === "employee" ? "Employee" : "User");
+
   const handleLogout = async () => {
     setProfileOpen(false);
-    await logoutUser();
-    navigate("/");
+    await logout();
   };
 
   const handleResultClick = (path) => {
@@ -122,6 +130,16 @@ const Navbar = () => {
     setQuery(e.target.value);
     setSearchOpen(true);
   };
+
+  const handleProfileClick = () => {
+    setProfileOpen(false);
+    navigate("/employee/profile");
+  };
+
+  const handleChangePassword = () => {
+    setProfileOpen(false);
+    navigate("/change-password");
+  }
 
   return (
     <header className="app-header" role="banner">
@@ -205,7 +223,10 @@ const Navbar = () => {
               tabIndex={0}
             />
             <div className="topbar-profile-info">
-              <span className="topbar-profile-name">Admin</span>
+              <span className="topbar-profile-name">{displayName}</span>
+              <span className="topbar-profile-role">
+                {role === "employee" ? "Employee" : "Admin"}
+              </span>
             </div>
 
             <div
@@ -214,6 +235,26 @@ const Navbar = () => {
               aria-label="User menu"
             >
               <div className="profile-dropdown-header">My Account</div>
+              {role === "employee" && (
+                <button
+                  type="button"
+                  className="profile-dropdown-item"
+                  role="menuitem"
+                  onClick={handleProfileClick}
+                >
+                  <span className="profile-dropdown-item-label">Profile</span>
+                </button>
+              )}
+
+              <button
+                type="button"
+                className="profile-dropdown-item"
+                role="menuitem"
+                onClick={handleChangePassword}
+              >
+                <span className="profile-dropdown-item-label">Change Password</span>
+              </button>
+
               <button
                 type="button"
                 className="profile-dropdown-item"

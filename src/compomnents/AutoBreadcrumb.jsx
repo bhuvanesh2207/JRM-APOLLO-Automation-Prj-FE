@@ -117,6 +117,10 @@ const breadcrumbMap = {
     { label: "Permissions", path: "/attendance/permissions" },
     { label: "Edit Permission" },
   ],
+  "/attendance/leaves": [
+    { label: "Dashboard", path: "/admin-dashboard" },
+    { label: "Leave Requests" },
+  ],
 
   // ── Overtime ← NEW ──
   "/attendance/overtime": [
@@ -133,6 +137,16 @@ const breadcrumbMap = {
     { label: "Dashboard", path: "/admin-dashboard" },
     { label: "Email Config" },
     { label: "Edit Config" },
+  ],
+
+  "/employee/overtime/request": [
+    { label: "Dashboard", path: "/employee/dashboard" },
+    { label: "Overtime" },
+  ],
+
+  "/attendance/ot-requests/assign": [
+    { label: "Dashboard", path: "/admin-dashboard" },
+    { label: "Assign Overtime" },
   ],
 };
 

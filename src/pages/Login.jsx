@@ -1,11 +1,11 @@
 import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import api from "../api/axios";
+import { useAuth } from "../context/AuthContext";
 import { FaRegEye } from "react-icons/fa";
 import { RiEyeCloseLine } from "react-icons/ri";
 import LoginPage from "../assets/images/LoginPage.avif";
 import LoginFormBG from "../assets/images/LoginFormBG.jpg";
-import ForgotPassword from "../pages/Admin/Forgotpassword"; // ← new import
+import ForgotPassword from "../pages/Admin/Forgotpassword";
 
 function Login() {
   const [email, setEmail] = useState("");
@@ -15,21 +15,20 @@ function Login() {
   const [errors, setErrors] = useState({});
   const [showForgot, setShowForgot] = useState(false); // ← new state
   const navigate = useNavigate();
+  const { login, isAuthenticated, loading, role, force_password_change } =
+    useAuth();
 
-  // ---------- AUTO REDIRECT IF ALREADY LOGGED IN ----------
   useEffect(() => {
-    const checkAuth = async () => {
-      try {
-        const response = await api.get("/api/admin/check_auth/");
-        if (response.status === 200) {
-          navigate("/admin-dashboard");
-        }
-      } catch (err) {
-        console.log("User not authenticated or not admin");
+    if (!loading && isAuthenticated) {
+      if (force_password_change) {
+        navigate("/change-password");
+        return;
       }
-    };
-    checkAuth();
-  }, [navigate]);
+      navigate(
+        role === "employee" ? "/employee/dashboard" : "/admin/dashboard",
+      );
+    }
+  }, [loading, isAuthenticated, role, force_password_change, navigate]);
 
   // ---------- VALIDATION ----------
   const validate = () => {
@@ -54,14 +53,17 @@ function Login() {
     if (!validate()) return;
     setError("");
     try {
-      const response = await api.post("/api/admin/login/", {
+      const auth = await login({
         email: email.trim().toLowerCase(),
         password,
       });
-      if (response.status === 200) {
-        const { csrf: csrfToken } = response.data;
-        api.defaults.headers.post["X-CSRFToken"] = csrfToken;
-        navigate("/admin-dashboard");
+
+      if (auth.force_password_change) {
+        navigate("/change-password");
+      } else {
+        navigate(
+          auth.role === "employee" ? "/employee/dashboard" : "/admin/dashboard",
+        );
       }
     } catch (err) {
       if (err.response) {
@@ -159,7 +161,9 @@ function Login() {
             </div>
 
             {/* ── FORGOT PASSWORD LINK ──────────────────────── */}
-            <div style={{ textAlign: "right", marginTop: -8, marginBottom: 12 }}>
+            <div
+              style={{ textAlign: "right", marginTop: -8, marginBottom: 12 }}
+            >
               <button
                 type="button"
                 onClick={() => setShowForgot(true)}

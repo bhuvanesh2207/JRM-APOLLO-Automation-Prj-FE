@@ -1,9 +1,10 @@
 import axios from "axios";
 
 const axiosInstance = axios.create({
-  baseURL: "/", 
+  baseURL: "/",
   withCredentials: true,
 });
+
 let isRefreshing = false;
 let refreshPromise = null;
 
@@ -26,7 +27,9 @@ axiosInstance.interceptors.response.use(
     const originalRequest = error.config;
 
     const isAuthEndpoint =
-      originalRequest.url?.includes("/api/admin/login/") || originalRequest.url?.includes("/api/admin/refresh/");
+      originalRequest.url?.includes("/api/admin/login/") ||
+      originalRequest.url?.includes("/api/admin/token/refresh/"); // ✅ fixed
+
     if (
       error.response?.status === 401 &&
       !originalRequest._retry &&
@@ -37,7 +40,7 @@ axiosInstance.interceptors.response.use(
       if (!isRefreshing) {
         isRefreshing = true;
         refreshPromise = axiosInstance
-          .post("/api/admin/refresh/")
+          .post("/api/admin/token/refresh/") // ✅ fixed
           .finally(() => {
             isRefreshing = false;
             refreshPromise = null;

@@ -1,32 +1,26 @@
-import React, { useEffect, useState } from "react";
-import { Navigate } from "react-router-dom";
-import axiosInstance from "../api/axios";
+import React from "react";
+import { Navigate, Outlet, useLocation } from "react-router-dom";
+import { useAuth } from "../context/AuthContext";
 
-const ProtectedRoute = ({ children }) => {
-  const [isAuth, setIsAuth] = useState(null);
+const ProtectedRoute = ({ children, allowedRoles }) => {
+  const { loading, isAuthenticated, role, force_password_change } = useAuth();
+  const location = useLocation();
 
-  useEffect(() => {
-    let isMounted = true;
+  if (loading) return <div>Loading...</div>;
+  if (!isAuthenticated)
+    return <Navigate to="/" replace state={{ from: location }} />;
 
-    const checkAuth = async () => {
-      try {
-        await axiosInstance.get("/api/admin/check_auth/");
-        if (isMounted) setIsAuth(true);
-      } catch {
-        // 401 + refresh failed → interceptor does window.location.href = "/"
-        // but we also set false here so <Navigate> fires immediately
-        if (isMounted) setIsAuth(false);
-      }
-    };
+  if (force_password_change && location.pathname !== "/change-password") {
+    return <Navigate to="/change-password" replace />;
+  }
 
-    checkAuth();
-    return () => { isMounted = false; };
-  }, []);
+  if (allowedRoles && !allowedRoles.includes(role)) {
+    const target =
+      role === "employee" ? "/employee/dashboard" : "/admin/dashboard";
+    return <Navigate to={target} replace />;
+  }
 
-  if (isAuth === null) return <div>Loading...</div>;
-  if (!isAuth) return <Navigate to="/" replace />;   // ← this should fire
-
-  return children;
+  return children || <Outlet />;
 };
 
 export default ProtectedRoute;
