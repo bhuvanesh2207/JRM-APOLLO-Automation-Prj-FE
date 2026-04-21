@@ -148,6 +148,17 @@ const breadcrumbMap = {
     { label: "Dashboard", path: "/admin-dashboard" },
     { label: "Assign Overtime" },
   ],
+
+  // Salary
+  "/salary/generate":[
+    { label: "Dashboard", path: "/admin-dashboard" },
+    { label: "Generate Salary" },
+  ],
+
+  "/salary/list":[
+    { label: "Dashboard", path: "/admin-dashboard" },
+    { label: "Salary List" },
+  ],
 };
 
 /* ── Breadcrumb renderer ── */

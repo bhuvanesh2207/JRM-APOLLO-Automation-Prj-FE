@@ -56,6 +56,10 @@ import ChangePassword from "./pages/ChangePassword.jsx";
 import ProtectedRoute from "./routes/ProtectedRoute";
 import Overtimeapproval from "./pages/Attendance/Overtimeapproval.jsx";
 
+/* Salary */
+import SalaryGenerate from "./pages/Salary/SalaryGenerate.jsx";
+import SalaryList from "./pages/Salary/SalaryList.jsx";
+
 function App() {
   return (
     <Routes>
@@ -392,6 +396,24 @@ function App() {
             }
           />
         </Route>
+
+        {/*Salary */}
+        <Route
+          path="/salary/generate"
+          element={
+            <ProtectedRoute allowedRoles={["admin"]}>
+              <SalaryGenerate />{" "}
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/salary/list"
+          element={
+            <ProtectedRoute allowedRoles={["admin"]}>
+              <SalaryList />
+            </ProtectedRoute>
+          }
+        />
       </Route>
     </Routes>
   );

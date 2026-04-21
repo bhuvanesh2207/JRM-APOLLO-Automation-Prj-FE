@@ -104,7 +104,7 @@ const PermissionList = () => {
     setLoading(true);
     setError("");
     try {
-      const res = await api.get("/api/attendance/employee-permissions/", {
+      const res = await api.get("/api/attendance/permissions/", {
         params: { year: navYear, month: navMonth },
       });
       if (res.data.success) {

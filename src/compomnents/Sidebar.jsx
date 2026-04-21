@@ -33,9 +33,15 @@ const ADMIN_MENU = [
           { label: "CALENDAR", href: "/attendance/calendar" },
           { label: "EMP PERMISSIONS", href: "/attendance/permissions" },
           { label: "EMP LEAVES", href: "/attendance/leaves" },
-          { label: "EMP OVERTIME", href: "/attendance/overtime/request" },
+          { label: "EMP OVERTIME", href: "/attendance/overtime" },
           { label: "ASSIGN OT", href: "/attendance/ot-requests/assign" },
-          
+        ],
+      },
+      {
+        label: "SALARY",
+        children: [
+          { label: "GENERATE SALARY", href: "/salary/generate" },
+          { label: "SALARY LIST", href: "/salary/list" },
         ],
       },
     ],

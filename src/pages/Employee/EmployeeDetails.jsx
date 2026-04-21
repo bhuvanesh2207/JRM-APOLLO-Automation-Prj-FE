@@ -1,9 +1,19 @@
 import React, { useEffect, useState, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import {
-  FaEdit, FaTrashAlt, FaList, FaUserPlus, FaEye, FaClock,
-  FaUserClock, FaClipboardList, FaChevronLeft, FaChevronRight,
-  FaTimes, FaCalendarAlt,
+  FaEdit,
+  FaTrashAlt,
+  FaPlay,
+  FaList,
+  FaUserPlus,
+  FaEye,
+  FaClock,
+  FaUserClock,
+  FaClipboardList,
+  FaChevronLeft,
+  FaChevronRight,
+  FaTimes,
+  FaCalendarAlt,
 } from "react-icons/fa";
 import AutoBreadcrumb from "../../compomnents/AutoBreadcrumb";
 import Popup from "../../compomnents/Popup";
@@ -22,14 +32,39 @@ const fmt12 = (t) => {
 };
 
 const MONTH_NAMES = [
-  "January","February","March","April","May","June",
-  "July","August","September","October","November","December",
+  "January",
+  "February",
+  "March",
+  "April",
+  "May",
+  "June",
+  "July",
+  "August",
+  "September",
+  "October",
+  "November",
+  "December",
 ];
 
 const STATUS_META = {
-  pending:  { color:"#d97706", bg:"#fffbeb", border:"#fde68a", label:"Pending"  },
-  approved: { color:"#15803d", bg:"#f0fdf4", border:"#bbf7d0", label:"Approved" },
-  rejected: { color:"#dc2626", bg:"#fef2f2", border:"#fecaca", label:"Rejected" },
+  pending: {
+    color: "#d97706",
+    bg: "#fffbeb",
+    border: "#fde68a",
+    label: "Pending",
+  },
+  approved: {
+    color: "#15803d",
+    bg: "#f0fdf4",
+    border: "#bbf7d0",
+    label: "Approved",
+  },
+  rejected: {
+    color: "#dc2626",
+    bg: "#fef2f2",
+    border: "#fecaca",
+    label: "Rejected",
+  },
 };
 
 /* ════════════════════════════════════════════════════════════ */
@@ -37,37 +72,54 @@ const EmployeeDetails = () => {
   const navigate = useNavigate();
 
   /* ── Employees ── */
-  const [employees,     setEmployees]     = useState([]);
-  const [loading,       setLoading]       = useState(true);
-  const [error,         setError]         = useState("");
+  const [employees, setEmployees] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
 
   /* ── Table controls ── */
-  const [search,        setSearch]        = useState("");
-  const [entriesPerPage, setEntries]      = useState(5);
-  const [currentPage,   setCurrentPage]   = useState(1);
-  const [sortFilter,    setSortFilter]    = useState("all");
-  const [showSortDrop,  setShowSortDrop]  = useState(false);
-  const [showEntDrop,   setShowEntDrop]   = useState(false);
+  const [search, setSearch] = useState("");
+  const [entriesPerPage, setEntries] = useState(5);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [sortFilter, setSortFilter] = useState("all");
+  const [showSortDrop, setShowSortDrop] = useState(false);
+  const [showEntDrop, setShowEntDrop] = useState(false);
 
   /* ── Permissions drawer ── */
   const [drawer, setDrawer] = useState({ open: false, employee: null });
   const today = new Date();
-  const [permYear,  setPermYear]  = useState(today.getFullYear());
+  const [permYear, setPermYear] = useState(today.getFullYear());
   const [permMonth, setPermMonth] = useState(today.getMonth() + 1);
-  const [perms,     setPerms]     = useState([]);
+  const [perms, setPerms] = useState([]);
   const [permsLoading, setPermsLoading] = useState(false);
-  const [permsError,   setPermsError]   = useState("");
+  const [permsError, setPermsError] = useState("");
 
   const sortRef = useRef(null);
-  const entRef  = useRef(null);
+  const entRef = useRef(null);
 
   /* ── Popup ── */
   const [popupConfig, setPopupConfig] = useState({
-    show: false, type: "info", title: "", message: "",
-    confirmText: "OK", cancelText: "Cancel", showCancel: false, onConfirm: null,
+    show: false,
+    type: "info",
+    title: "",
+    message: "",
+    confirmText: "OK",
+    cancelText: "Cancel",
+    showCancel: false,
+    onConfirm: null,
   });
-  const openPopup  = (cfg) => setPopupConfig({ show:true, type:"info", title:"", message:"", confirmText:"OK", cancelText:"Cancel", showCancel:false, onConfirm:null, ...cfg });
-  const closePopup = ()    => setPopupConfig((p) => ({ ...p, show:false }));
+  const openPopup = (cfg) =>
+    setPopupConfig({
+      show: true,
+      type: "info",
+      title: "",
+      message: "",
+      confirmText: "OK",
+      cancelText: "Cancel",
+      showCancel: false,
+      onConfirm: null,
+      ...cfg,
+    });
+  const closePopup = () => setPopupConfig((p) => ({ ...p, show: false }));
 
   /* ── Fetch employees ── */
   const fetchEmployees = async () => {
@@ -87,13 +139,17 @@ const EmployeeDetails = () => {
     }
   };
 
-  useEffect(() => { fetchEmployees(); }, []);
+  useEffect(() => {
+    fetchEmployees();
+  }, []);
 
   /* ── Close dropdowns on outside click ── */
   useEffect(() => {
     const h = (e) => {
-      if (sortRef.current && !sortRef.current.contains(e.target)) setShowSortDrop(false);
-      if (entRef.current  && !entRef.current.contains(e.target))  setShowEntDrop(false);
+      if (sortRef.current && !sortRef.current.contains(e.target))
+        setShowSortDrop(false);
+      if (entRef.current && !entRef.current.contains(e.target))
+        setShowEntDrop(false);
     };
     document.addEventListener("mousedown", h);
     return () => document.removeEventListener("mousedown", h);
@@ -133,32 +189,74 @@ const EmployeeDetails = () => {
 
   /* ── Drawer month nav ── */
   const drawerPrevMonth = () => {
-    let y = permYear, m = permMonth;
-    if (m === 1) { y -= 1; m = 12; } else m -= 1;
-    setPermYear(y); setPermMonth(m);
+    let y = permYear,
+      m = permMonth;
+    if (m === 1) {
+      y -= 1;
+      m = 12;
+    } else m -= 1;
+    setPermYear(y);
+    setPermMonth(m);
     fetchPermissions(drawer.employee.id, y, m);
   };
   const drawerNextMonth = () => {
-    let y = permYear, m = permMonth;
-    if (m === 12) { y += 1; m = 1; } else m += 1;
-    setPermYear(y); setPermMonth(m);
+    let y = permYear,
+      m = permMonth;
+    if (m === 12) {
+      y += 1;
+      m = 1;
+    } else m += 1;
+    setPermYear(y);
+    setPermMonth(m);
     fetchPermissions(drawer.employee.id, y, m);
   };
 
-  /* ── Soft delete employee ── */
-  const handleDeleteEmployee = (id, name) => {
+  /* ── Toggle employee status (deactivate/activate) ── */
+  const handleToggleStatus = (id, currentStatus, name) => {
+    const isActive = currentStatus === "active";
+    const title = isActive ? "Deactivate Employee" : "Activate Employee";
+    const message = isActive
+      ? `Are you sure you want to deactivate "${name}"?`
+      : `Are you sure you want to activate "${name}"?`;
+    const confirmText = isActive ? "Deactivate" : "Activate";
+    const successMsg = isActive
+      ? "Employee deactivated successfully."
+      : "Employee activated successfully.";
+
     openPopup({
-      type:"delete", title:"Deactivate Employee",
-      message:`Are you sure you want to deactivate "${name}"?`,
-      showCancel:true, confirmText:"Deactivate", cancelText:"Cancel",
+      type: isActive ? "delete" : "success",
+      title,
+      message,
+      showCancel: true,
+      confirmText,
+      cancelText: "Cancel",
       onConfirm: async () => {
         closePopup();
         try {
-          await api.delete(`/api/employees/delete/${id}/`);
+          if (isActive) {
+            // Deactivate (DELETE)
+            await api.delete(`/api/employees/delete/${id}/`);
+          } else {
+            // Activate (PATCH)
+            await api.patch(`/api/employees/update/${id}/`, {
+              status: "active",
+            });
+          }
           await fetchEmployees();
-          openPopup({ type:"success", title:"Done", message:"Employee deactivated successfully." });
-        } catch {
-          openPopup({ type:"error", title:"Error", message:"Server error while deactivating employee." });
+          openPopup({
+            type: "success",
+            title: "Done",
+            message: successMsg,
+          });
+        } catch (error) {
+          console.error("Status toggle error:", error);
+          openPopup({
+            type: "error",
+            title: "Error",
+            message:
+              error.response?.data?.message ||
+              "Server error while updating status.",
+          });
         }
       },
     });
@@ -166,33 +264,40 @@ const EmployeeDetails = () => {
 
   /* ── Helpers ── */
   const fmtDate = (d) =>
-    d ? new Date(d).toLocaleDateString("en-IN", { timeZone: TIMEZONE, day:"2-digit", month:"short", year:"numeric" }) : "N/A";
+    d
+      ? new Date(d).toLocaleDateString("en-IN", {
+          timeZone: TIMEZONE,
+          day: "2-digit",
+          month: "short",
+          year: "numeric",
+        })
+      : "N/A";
 
   const designationLabel = (val) => {
     const map = {
-      software_developer:"Software Developer",
-      graphic_designer:  "Graphic Designer",
-      web_designer:      "Web Designer",
-      ui_ux_designer:    "UI/UX Designer",
-      business_analyst:  "Business Analyst",
+      software_developer: "Software Developer",
+      graphic_designer: "Graphic Designer",
+      web_designer: "Web Designer",
+      ui_ux_designer: "UI/UX Designer",
+      business_analyst: "Business Analyst",
     };
     return map[val] || val || "N/A";
   };
 
   /* ── Filter options ── */
   const SORT_OPTIONS = [
-    { value:"active",             label:"Active Employees"   },
-    { value:"inactive",           label:"Inactive Employees" },
-    { value:"software_developer", label:"Software Developer" },
-    { value:"graphic_designer",   label:"Graphic Designer"   },
-    { value:"web_designer",       label:"Web Designer"       },
-    { value:"ui_ux_designer",     label:"UI/UX Designer"     },
-    { value:"business_analyst",   label:"Business Analyst"   },
+    { value: "active", label: "Active Employees" },
+    { value: "inactive", label: "Inactive Employees" },
+    { value: "software_developer", label: "Software Developer" },
+    { value: "graphic_designer", label: "Graphic Designer" },
+    { value: "web_designer", label: "Web Designer" },
+    { value: "ui_ux_designer", label: "UI/UX Designer" },
+    { value: "business_analyst", label: "Business Analyst" },
   ];
 
   const passesSortFilter = (emp, f) => {
-    if (f === "all")      return true;
-    if (f === "active")   return emp.status === "active";
+    if (f === "all") return true;
+    if (f === "active") return emp.status === "active";
     if (f === "inactive") return emp.status === "inactive";
     return emp.designation === f;
   };
@@ -206,16 +311,21 @@ const EmployeeDetails = () => {
         !emp.employee_id?.toLowerCase().includes(t) &&
         !emp.email?.toLowerCase().includes(t) &&
         !emp.designation?.toLowerCase().includes(t)
-      ) return false;
+      )
+        return false;
     }
     return passesSortFilter(emp, sortFilter);
   });
 
   const totalEntries = filtered.length;
-  const totalPages   = Math.max(1, Math.ceil(totalEntries / entriesPerPage));
-  const paginated    = filtered.slice((currentPage - 1) * entriesPerPage, currentPage * entriesPerPage);
-  const startEntry   = totalEntries === 0 ? 0 : (currentPage - 1) * entriesPerPage + 1;
-  const endEntry     = Math.min(currentPage * entriesPerPage, totalEntries);
+  const totalPages = Math.max(1, Math.ceil(totalEntries / entriesPerPage));
+  const paginated = filtered.slice(
+    (currentPage - 1) * entriesPerPage,
+    currentPage * entriesPerPage,
+  );
+  const startEntry =
+    totalEntries === 0 ? 0 : (currentPage - 1) * entriesPerPage + 1;
+  const endEntry = Math.min(currentPage * entriesPerPage, totalEntries);
 
   /* ── Render ── */
   return (
@@ -223,30 +333,61 @@ const EmployeeDetails = () => {
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         <AutoBreadcrumb />
         <div className="bg-white rounded-lg shadow-lg p-6">
-
           {/* Header */}
           <div className="table-header">
-            <h2><FaList className="domain-icon" /> Employees</h2>
-            <button type="button" className="btn btn-secondary" onClick={() => navigate("/employee/new")}>
-              <FaUserPlus style={{ marginRight:4 }} /> Add Employee
+            <h2>
+              <FaList className="domain-icon" /> Employees
+            </h2>
+            <button
+              type="button"
+              className="btn btn-secondary"
+              onClick={() => navigate("/employee/new")}
+            >
+              <FaUserPlus style={{ marginRight: 4 }} /> Add Employee
             </button>
           </div>
 
           {/* Controls */}
           {!loading && !error && (
-            <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:12, flexWrap:"wrap", gap:8 }}>
+            <div
+              style={{
+                display: "flex",
+                justifyContent: "space-between",
+                alignItems: "center",
+                marginBottom: 12,
+                flexWrap: "wrap",
+                gap: 8,
+              }}
+            >
               <div className="table-controls-left">
-                <div className="sort-filter-wrapper sort-filter-wrapper-left" ref={entRef}>
-                  <button type="button" className="btn btn-sort" onClick={() => setShowEntDrop((v) => !v)}>
+                <div
+                  className="sort-filter-wrapper sort-filter-wrapper-left"
+                  ref={entRef}
+                >
+                  <button
+                    type="button"
+                    className="btn btn-sort"
+                    onClick={() => setShowEntDrop((v) => !v)}
+                  >
                     <span>{entriesPerPage} / page</span>
                     <span className="sort-filter-caret" />
                   </button>
                   {showEntDrop && (
                     <div className="sort-filter-dropdown">
-                      {[5,10,25,50].map((n) => (
-                        <button key={n} type="button" className="sort-filter-option"
-                          onClick={() => { setEntries(n); setCurrentPage(1); setShowEntDrop(false); }}>
-                          <span className={`sort-filter-checkbox${entriesPerPage === n ? " checked" : ""}`} />
+                      {[5, 10, 25, 50].map((n) => (
+                        <button
+                          key={n}
+                          type="button"
+                          className="sort-filter-option"
+                          onClick={() => {
+                            setEntries(n);
+                            setCurrentPage(1);
+                            setShowEntDrop(false);
+                          }}
+                        >
+                          <span
+                            className={`sort-filter-checkbox${entriesPerPage === n ? " checked" : ""}`}
+                          />
                           <span>{n} entries per page</span>
                         </button>
                       ))}
@@ -257,29 +398,58 @@ const EmployeeDetails = () => {
 
               <div className="table-controls-right">
                 <div className="table-search">
-                  <input type="text" value={search}
-                    onChange={(e) => { setSearch(e.target.value); setCurrentPage(1); }}
-                    placeholder="Search employees" aria-label="Search employees"
+                  <input
+                    type="text"
+                    value={search}
+                    onChange={(e) => {
+                      setSearch(e.target.value);
+                      setCurrentPage(1);
+                    }}
+                    placeholder="Search employees"
+                    aria-label="Search employees"
                   />
                 </div>
                 <div className="sort-filter-wrapper" ref={sortRef}>
-                  <button type="button" className="btn btn-sort" onClick={() => setShowSortDrop((v) => !v)}>
+                  <button
+                    type="button"
+                    className="btn btn-sort"
+                    onClick={() => setShowSortDrop((v) => !v)}
+                  >
                     <span>Filter</span>
                     <span className="sort-filter-caret" />
                   </button>
                   {showSortDrop && (
                     <div className="sort-filter-dropdown">
                       {SORT_OPTIONS.map((opt) => (
-                        <button key={opt.value} type="button" className="sort-filter-option"
-                          onClick={() => { setSortFilter(opt.value); setCurrentPage(1); setShowSortDrop(false); }}>
-                          <span className={`sort-filter-checkbox${sortFilter === opt.value ? " checked" : ""}`} />
+                        <button
+                          key={opt.value}
+                          type="button"
+                          className="sort-filter-option"
+                          onClick={() => {
+                            setSortFilter(opt.value);
+                            setCurrentPage(1);
+                            setShowSortDrop(false);
+                          }}
+                        >
+                          <span
+                            className={`sort-filter-checkbox${sortFilter === opt.value ? " checked" : ""}`}
+                          />
                           <span>{opt.label}</span>
                         </button>
                       ))}
                       <div className="sort-filter-divider" />
-                      <button type="button" className="sort-filter-option"
-                        onClick={() => { setSortFilter("all"); setCurrentPage(1); setShowSortDrop(false); }}>
-                        <span className={`sort-filter-checkbox${sortFilter === "all" ? " checked" : ""}`} />
+                      <button
+                        type="button"
+                        className="sort-filter-option"
+                        onClick={() => {
+                          setSortFilter("all");
+                          setCurrentPage(1);
+                          setShowSortDrop(false);
+                        }}
+                      >
+                        <span
+                          className={`sort-filter-checkbox${sortFilter === "all" ? " checked" : ""}`}
+                        />
                         <span>Clear</span>
                       </button>
                     </div>
@@ -293,7 +463,7 @@ const EmployeeDetails = () => {
           {loading ? (
             <div className="no-data">Loading employees...</div>
           ) : error ? (
-            <div style={{ color:"var(--error)" }}>{error}</div>
+            <div style={{ color: "var(--error)" }}>{error}</div>
           ) : totalEntries === 0 ? (
             <div className="no-data">No employees found.</div>
           ) : (
@@ -317,85 +487,154 @@ const EmployeeDetails = () => {
                       const shift = emp.assigned_shift;
                       return (
                         <tr key={emp.id}>
-
                           {/* Employee */}
                           <td data-label="Employee">
-                            <div style={{ display:"flex", alignItems:"center", gap:10 }}>
+                            <div
+                              style={{
+                                display: "flex",
+                                alignItems: "center",
+                                gap: 10,
+                              }}
+                            >
                               <div>
                                 <strong>{emp.full_name}</strong>
-                                <div className="text-sm text-gray">ID: {emp.employee_id}</div>
-                                <div className="text-sm text-gray">{emp.email}</div>
+                                <div className="text-sm text-gray">
+                                  ID: {emp.employee_id}
+                                </div>
+                                <div className="text-sm text-gray">
+                                  {emp.email}
+                                </div>
                               </div>
                             </div>
                           </td>
 
-                          <td data-label="Designation">{designationLabel(emp.designation)}</td>
+                          <td data-label="Designation">
+                            {designationLabel(emp.designation)}
+                          </td>
 
                           <td data-label="Contact">
                             <div>{emp.primary_contact_no || "N/A"}</div>
-                            {emp.alt_contact_no && <div className="text-sm text-gray">Alt: {emp.alt_contact_no}</div>}
+                            {emp.alt_contact_no && (
+                              <div className="text-sm text-gray">
+                                Alt: {emp.alt_contact_no}
+                              </div>
+                            )}
                           </td>
 
-                          <td data-label="Date of Joining">{fmtDate(emp.date_of_joining)}</td>
+                          <td data-label="Date of Joining">
+                            {fmtDate(emp.date_of_joining)}
+                          </td>
 
                           <td data-label="Blood Group">
-                            {emp.blood_group
-                              ? <span className="blood-badge">{emp.blood_group}</span>
-                              : "N/A"}
+                            {emp.blood_group ? (
+                              <span className="blood-badge">
+                                {emp.blood_group}
+                              </span>
+                            ) : (
+                              "N/A"
+                            )}
                           </td>
 
                           {/* Assigned Shift */}
                           <td data-label="Assigned Shift">
                             {shift ? (
                               <div className="shift-cell">
-                                <span className="shift-name-badge">{shift.shift_name}</span>
+                                <span className="shift-name-badge">
+                                  {shift.shift_name}
+                                </span>
                                 <div className="shift-timings">
                                   <span className="shift-time shift-time-start">
-                                    <FaClock className="shift-clock-icon" />{fmt12(shift.start_time)}
+                                    <FaClock className="shift-clock-icon" />
+                                    {fmt12(shift.start_time)}
                                   </span>
                                   <span className="shift-time-sep">→</span>
                                   <span className="shift-time shift-time-end">
-                                    <FaClock className="shift-clock-icon" />{fmt12(shift.end_time)}
+                                    <FaClock className="shift-clock-icon" />
+                                    {fmt12(shift.end_time)}
                                   </span>
                                 </div>
                               </div>
                             ) : (
-                              <span className="shift-unassigned">Not assigned</span>
+                              <span className="shift-unassigned">
+                                Not assigned
+                              </span>
                             )}
                           </td>
 
-                          <td data-label="Status"
-                            className={emp.status === "active" ? "status-active" : "status-inactive"}>
+                          <td
+                            data-label="Status"
+                            className={
+                              emp.status === "active"
+                                ? "status-active"
+                                : "status-inactive"
+                            }
+                          >
                             {emp.status === "active" ? "Active" : "Inactive"}
                           </td>
 
                           {/* Actions */}
                           <td data-label="Actions">
                             <div className="actions">
-                              <button className="action-btn view-btn"
-                                onClick={() => navigate(`/employees/view/${emp.id}`)} title="View Details">
+                              <button
+                                className="action-btn view-btn"
+                                onClick={() =>
+                                  navigate(`/employees/view/${emp.employee_id}`)
+                                }
+                                title="View Details"
+                              >
                                 <FaEye />
                               </button>
-                              <button className="action-btn edit-btn"
-                                onClick={() => navigate(`/employees/edit/${emp.id}`)} title="Edit Employee">
+                              <button
+                                className="action-btn edit-btn"
+                                onClick={() =>
+                                  navigate(`/employees/edit/${emp.employee_id}`)
+                                }
+                                title="Edit Employee"
+                              >
                                 <FaEdit />
                               </button>
-                              <button className="action-btn shift-btn"
-                                onClick={() => navigate(`/shifts/assign?employee=${emp.employee_id}`)} title="Assign / Edit Shift">
+                              <button
+                                className="action-btn shift-btn"
+                                onClick={() =>
+                                  navigate(
+                                    `/shifts/assign?employee=${emp.employee_id}`,
+                                  )
+                                }
+                                title="Assign / Edit Shift"
+                              >
                                 <FaUserClock />
                               </button>
                               {/* ── Permissions button (NEW) ── */}
-                              <button className="action-btn perm-btn"
-                                onClick={() => openPermDrawer(emp)} title="View Permissions">
+                              <button
+                                className="action-btn perm-btn"
+                                onClick={() => openPermDrawer(emp)}
+                                title="View Permissions"
+                              >
                                 <FaClipboardList />
                               </button>
-                              <button className="action-btn delete-btn"
-                                onClick={() => handleDeleteEmployee(emp.id, emp.full_name)} title="Deactivate">
-                                <FaTrashAlt />
+                              <button
+                                className={`action-btn ${emp.status === "active" ? "delete-btn" : "activate-btn"}`}
+                                onClick={() =>
+                                  handleToggleStatus(
+                                    emp.employee_id,
+                                    emp.status,
+                                    emp.full_name,
+                                  )
+                                }
+                                title={
+                                  emp.status === "active"
+                                    ? "Deactivate"
+                                    : "Activate"
+                                }
+                              >
+                                {emp.status === "active" ? (
+                                  <FaTrashAlt />
+                                ) : (
+                                  <FaPlay />
+                                )}
                               </button>
                             </div>
                           </td>
-
                         </tr>
                       );
                     })}
@@ -409,15 +648,33 @@ const EmployeeDetails = () => {
                   {`Showing ${startEntry} to ${endEntry} of ${totalEntries} entries`}
                 </div>
                 <div className="pagination">
-                  <button className="pagination-btn" disabled={currentPage === 1}
-                    onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}>Previous</button>
-                  {Array.from({ length: totalPages }, (_, i) => i + 1).map((pg) => (
-                    <button key={pg}
-                      className={`pagination-btn${currentPage === pg ? " active" : ""}`}
-                      onClick={() => setCurrentPage(pg)}>{pg}</button>
-                  ))}
-                  <button className="pagination-btn" disabled={currentPage === totalPages}
-                    onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}>Next</button>
+                  <button
+                    className="pagination-btn"
+                    disabled={currentPage === 1}
+                    onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
+                  >
+                    Previous
+                  </button>
+                  {Array.from({ length: totalPages }, (_, i) => i + 1).map(
+                    (pg) => (
+                      <button
+                        key={pg}
+                        className={`pagination-btn${currentPage === pg ? " active" : ""}`}
+                        onClick={() => setCurrentPage(pg)}
+                      >
+                        {pg}
+                      </button>
+                    ),
+                  )}
+                  <button
+                    className="pagination-btn"
+                    disabled={currentPage === totalPages}
+                    onClick={() =>
+                      setCurrentPage((p) => Math.min(totalPages, p + 1))
+                    }
+                  >
+                    Next
+                  </button>
                 </div>
               </div>
             </>
@@ -434,24 +691,38 @@ const EmployeeDetails = () => {
             <div className="perm-drawer-header">
               <div>
                 <div className="perm-drawer-title">
-                  <FaClipboardList style={{ color:"#0b91ac" }} />
+                  <FaClipboardList style={{ color: "#0b91ac" }} />
                   Permissions
                 </div>
-                <div className="perm-drawer-sub">{drawer.employee?.full_name} · {drawer.employee?.employee_id}</div>
+                <div className="perm-drawer-sub">
+                  {drawer.employee?.full_name} · {drawer.employee?.employee_id}
+                </div>
               </div>
-              <button className="drawer-close-btn" onClick={closeDrawer}><FaTimes /></button>
+              <button className="drawer-close-btn" onClick={closeDrawer}>
+                <FaTimes />
+              </button>
             </div>
 
             {/* Month navigator */}
             <div className="drawer-month-nav">
-              <button type="button" className="month-nav-btn" onClick={drawerPrevMonth}>
+              <button
+                type="button"
+                className="month-nav-btn"
+                onClick={drawerPrevMonth}
+              >
                 <FaChevronLeft />
               </button>
               <div className="month-nav-label">
                 <FaCalendarAlt className="month-nav-icon" />
-                <span>{MONTH_NAMES[permMonth - 1]} {permYear}</span>
+                <span>
+                  {MONTH_NAMES[permMonth - 1]} {permYear}
+                </span>
               </div>
-              <button type="button" className="month-nav-btn" onClick={drawerNextMonth}>
+              <button
+                type="button"
+                className="month-nav-btn"
+                onClick={drawerNextMonth}
+              >
                 <FaChevronRight />
               </button>
             </div>
@@ -461,7 +732,9 @@ const EmployeeDetails = () => {
               {permsLoading ? (
                 <div className="drawer-empty">Loading...</div>
               ) : permsError ? (
-                <div className="drawer-empty" style={{ color:"#dc2626" }}>{permsError}</div>
+                <div className="drawer-empty" style={{ color: "#dc2626" }}>
+                  {permsError}
+                </div>
               ) : perms.length === 0 ? (
                 <div className="drawer-empty">
                   No permissions for {MONTH_NAMES[permMonth - 1]} {permYear}.
@@ -474,26 +747,40 @@ const EmployeeDetails = () => {
                       <div className="perm-card-top">
                         <span className="perm-card-date">
                           {perm.date
-                            ? new Date(perm.date).toLocaleDateString("en-IN", { timeZone: TIMEZONE, day:"2-digit", month:"short", year:"numeric" })
+                            ? new Date(perm.date).toLocaleDateString("en-IN", {
+                                timeZone: TIMEZONE,
+                                day: "2-digit",
+                                month: "short",
+                                year: "numeric",
+                              })
                             : "N/A"}
                         </span>
-                        <span className="perm-status-badge" style={{
-                          color:sm.color, background:sm.bg, border:`1px solid ${sm.border}`,
-                        }}>
+                        <span
+                          className="perm-status-badge"
+                          style={{
+                            color: sm.color,
+                            background: sm.bg,
+                            border: `1px solid ${sm.border}`,
+                          }}
+                        >
                           {sm.label}
                         </span>
                       </div>
 
                       <div className="perm-card-times">
                         <span className="perm-time-tag perm-time-start">
-                          <FaClock style={{ fontSize:9 }} /> {fmt12(perm.start_time)}
+                          <FaClock style={{ fontSize: 9 }} />{" "}
+                          {fmt12(perm.start_time)}
                         </span>
                         <span className="perm-time-sep">→</span>
                         <span className="perm-time-tag perm-time-end">
-                          <FaClock style={{ fontSize:9 }} /> {fmt12(perm.end_time)}
+                          <FaClock style={{ fontSize: 9 }} />{" "}
+                          {fmt12(perm.end_time)}
                         </span>
                         {perm.duration && (
-                          <span className="perm-duration-badge">{perm.duration} hrs</span>
+                          <span className="perm-duration-badge">
+                            {perm.duration} hrs
+                          </span>
                         )}
                       </div>
 
@@ -513,10 +800,16 @@ const EmployeeDetails = () => {
             {/* Footer summary */}
             {perms.length > 0 && (
               <div className="perm-drawer-footer">
-                <span>{perms.length} permission{perms.length !== 1 ? "s" : ""} this month</span>
+                <span>
+                  {perms.length} permission{perms.length !== 1 ? "s" : ""} this
+                  month
+                </span>
                 <span className="perm-drawer-total-hrs">
                   Total:{" "}
-                  {perms.reduce((acc, p) => acc + parseFloat(p.duration || 0), 0).toFixed(2)} hrs
+                  {perms
+                    .reduce((acc, p) => acc + parseFloat(p.duration || 0), 0)
+                    .toFixed(2)}{" "}
+                  hrs
                 </span>
               </div>
             )}
@@ -555,6 +848,9 @@ const EmployeeDetails = () => {
         .action-btn.shift-btn:hover { background:rgba(124,58,237,0.1); }
         .action-btn.perm-btn  { color:#0891b2; }
         .action-btn.perm-btn:hover  { background:rgba(8,145,178,0.1); }
+        .action-btn.activate-btn    { color:#22c55e; }
+        .action-btn.activate-btn:hover { background:rgba(34,197,94,0.1); }
+        .action-btn.delete-btn:hover   { background:rgba(220,38,38,0.1); }
 
         /* ── Drawer ── */
         .drawer-backdrop {
